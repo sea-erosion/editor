@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+:root {
+  --font-serif: "Noto Serif JP", serif;
+  --font-mono: "Share Tech Mono", monospace;
+  --font-sans: "Noto Sans JP", sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Ruby text */
+ruby rt {
+  font-family: var(--font-sans);
+  font-size: 0.55em;
+  color: #9ca3af;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0f14;
+}
+::-webkit-scrollbar-thumb {
+  background: #2d3748;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4a5568;
+}
+
+/* Novel content typography */
+.novel-content p {
+  font-family: var(--font-serif);
+  text-indent: 1em;
+  text-align: justify;
+}
+
+.novel-content ruby {
+  display: inline-flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  vertical-align: bottom;
+}
+
+/* Animate-in utility */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-in-from-top-1 {
+  from { transform: translateY(-4px); }
+  to { transform: translateY(0); }
+}
+
+.animate-in {
+  animation: fade-in 0.15s ease-out, slide-in-from-top-1 0.15s ease-out;
+}
+
+/* Selection */
+::selection {
+  background: rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
