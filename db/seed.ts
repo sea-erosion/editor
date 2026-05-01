@@ -1,11 +1,16 @@
+// 編集日時: 2026-04-29
+/**
+ * seed.ts
+ * - CLIで直接実行: npx tsx db/seed.ts
+ * - Next.js instrumentation経由でデプロイ時に自動実行
+ * - 既にデータが存在する場合はスキップ（冪等）
+ */
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
 
-const client = createClient({ url: "file:local.db" });
-const db = drizzle(client, { schema });
-
-async function initializeDb() {
+// ── テーブル初期化（CREATE IF NOT EXISTS） ────────────────────────────
+async function initializeDb(client: ReturnType<typeof createClient>) {
   // Create tables
   await client.execute(`CREATE TABLE IF NOT EXISTS anomalies (
     id TEXT PRIMARY KEY,
@@ -102,8 +107,26 @@ async function initializeDb() {
   console.log("Tables created.");
 }
 
-async function seed() {
-  await initializeDb();
+// ── シードデータ投入（冪等：novelが既に存在すればスキップ） ───────────
+export async function runSeed(dbUrl?: string, authToken?: string): Promise<void> {
+  const client = createClient({
+    url: dbUrl ?? process.env.TURSO_DATABASE_URL ?? "file:local.db",
+    authToken: authToken ?? process.env.TURSO_AUTH_TOKEN,
+  });
+  const db = drizzle(client, { schema });
+
+  await initializeDb(client);
+
+  // 既にnovelsが存在する場合はスキップ
+  const existing = await client.execute(`SELECT COUNT(*) as cnt FROM novels`);
+  const cnt = (existing.rows[0] as { cnt: number }).cnt;
+  if (Number(cnt) > 0) {
+    console.log("⏭ Seed skipped: data already exists.");
+    await client.close();
+    return;
+  }
+
+  console.log("🌱 Seeding...");
 
   // Clear existing data
   await client.execute(`DELETE FROM chapters`);
@@ -446,7 +469,12 @@ async function seed() {
   });
 
   console.log("✅ Seed data inserted successfully.");
+
+  console.log("✅ Seed complete.");
   await client.close();
 }
 
-seed().catch(console.error);
+// ── CLIから直接実行 ─────────────────────────────────────────────────
+if (require.main === module || process.argv[1]?.endsWith("seed.ts") || process.argv[1]?.endsWith("seed.js")) {
+  runSeed().catch((e) => { console.error(e); process.exit(1); });
+}
