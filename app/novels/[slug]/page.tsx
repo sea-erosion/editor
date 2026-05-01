@@ -1,4 +1,5 @@
-import { NovelRenderer } from "@/components/novel/NovelRenderer";
+import { NovelRenderer }     from "@/components/novel/NovelRenderer";
+import { ReadingProgress }   from "@/components/novel/ReadingProgress";
 import { db } from "@/db/client";
 import { chapters, novels } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -34,7 +35,13 @@ export default async function NovelPage({
   const currentChapter = chapterList.find((c) => c.chapterNumber === currentChapterNum) ?? chapterList[0];
 
   return (
-    <div className="flex gap-8">
+    <>
+      <ReadingProgress
+        novelSlug={slug}
+        totalChapters={chapterList.length}
+        currentChapter={currentChapterNum}
+      />
+      <div className="flex gap-8 pt-10">
       {/* Sidebar */}
       <aside className="hidden lg:block w-52 flex-shrink-0">
         <div className="sticky top-6">
@@ -75,7 +82,13 @@ export default async function NovelPage({
             )}
           </div>
           <h1 className="text-2xl font-serif text-gray-100 font-medium mb-1">{novel.title}</h1>
-          <p className="text-gray-600 text-sm font-mono">著者: {novel.author}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-gray-600 text-sm font-mono">著者: {novel.author}</p>
+            <a href={`/api/novels/${slug}/export`} download
+              className="text-[10px] font-mono text-gray-700 hover:text-gray-400 border border-gray-800 hover:border-gray-700 px-2.5 py-1 rounded transition-all">
+              ↓ HTML書き出し
+            </a>
+          </div>
         </div>
 
         {/* Chapter */}
@@ -111,5 +124,6 @@ export default async function NovelPage({
         </div>
       </div>
     </div>
+    </>
   );
 }
