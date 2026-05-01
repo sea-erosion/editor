@@ -20,7 +20,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }).where(eq(novels.id, id));
     const updated = await db.select().from(novels).where(eq(novels.id, id));
     return NextResponse.json(updated[0]);
-  } catch (e) {
+  } catch (e: any) {
+    if (e?.message?.includes("UNIQUE")) {
+      return NextResponse.json({ error: "スラッグが既に使用されています" }, { status: 409 });
+    }
     console.error(e);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
