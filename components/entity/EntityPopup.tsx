@@ -10,6 +10,8 @@ interface EntityPopupProps {
   label: string;
   anchorRef: React.RefObject<HTMLElement | null>;
   onClose: () => void;
+  /** 管理画面でのみ true にする。公開サイトでは登場箇所フッターを非表示にする */
+  showUsages?: boolean;
 }
 
 const ENTITY_COLORS: Record<EntityType, { border: string; badge: string; icon: string }> = {
@@ -50,7 +52,7 @@ const CLASSIFICATION_COLORS: Record<string, string> = {
   Deceased:     "text-red-500 border-red-700",
 };
 
-export function EntityPopup({ entityType, entityId, label, anchorRef, onClose }: EntityPopupProps) {
+export function EntityPopup({ entityType, entityId, label, anchorRef, onClose, showUsages = false }: EntityPopupProps) {
   const [entity, setEntity] = useState<AnyEntity | null>(null);
   const [loading, setLoading] = useState(true);
   const [position, setPosition] = useState({ top: 0, left: 0 });
@@ -256,16 +258,53 @@ export function EntityPopup({ entityType, entityId, label, anchorRef, onClose }:
         )}
       </div>
 
-      {/* Footer — click for detail */}
-      <div className="px-3 py-2 border-t border-gray-700">
-        <button
-          onClick={() => router.push(detailPath)}
-          className={`w-full text-xs font-mono py-1.5 rounded transition-all
-            border ${colors.border} text-gray-400 hover:text-gray-100 hover:bg-gray-800`}
-        >
-          詳細を表示 →
-        </button>
-      </div>
+      {/* Footer — 逆引き + 詳細リンク */}
+      {showUsages && <UsageFooter entityId={entityId} borderCls={colors.border} detailPath={detailPath} onClose={onClose} pushFn={router.push} />}
+    </div>
+  );
+}
+
+function UsageFooter({ entityId, borderCls, detailPath, onClose, pushFn }: {
+  entityId: string; borderCls: string; detailPath: string;
+  onClose: () => void; pushFn: (path: string) => void;
+}) {
+  const [usages, setUsages] = useState<Array<{ chapterId: string; chapterNumber: number; chapterTitle: string; novelTitle: string; novelSlug: string }>>([]);
+  const [open, setOpen]   = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const loadUsages = async () => {
+    if (loaded) { setOpen(v => !v); return; }
+    const res  = await fetch(`/api/admin/entities/usages?id=${encodeURIComponent(entityId)}`);
+    const data = await res.json();
+    setUsages(Array.isArray(data) ? data : []);
+    setLoaded(true); setOpen(true);
+  };
+
+  return (
+    <div className="px-3 py-2 border-t border-gray-700 space-y-1.5">
+      <button onClick={loadUsages}
+        className="w-full text-[10px] font-mono py-1 rounded border border-gray-700 text-gray-600 hover:text-gray-400 transition-all">
+        {open ? "▲ 登場箇所を隠す" : "▼ 登場する章を確認"}
+      </button>
+      {open && (
+        <div className="space-y-0.5 max-h-28 overflow-y-auto">
+          {usages.length === 0
+            ? <p className="text-[10px] font-mono text-gray-700 text-center py-1">登場箇所なし</p>
+            : usages.map((u) => (
+                <button key={u.chapterId}
+                  onClick={() => { pushFn(`/novels/${u.novelSlug}?chapter=${u.chapterNumber}`); onClose(); }}
+                  className="w-full text-left px-2 py-1 rounded hover:bg-gray-800 transition-colors">
+                  <span className="text-[10px] font-mono text-gray-600">{u.novelTitle} / </span>
+                  <span className="text-[10px] font-mono text-gray-400">{u.chapterNumber}章 {u.chapterTitle}</span>
+                </button>
+              ))
+          }
+        </div>
+      )}
+      <button onClick={() => pushFn(detailPath)}
+        className={`w-full text-xs font-mono py-1.5 rounded transition-all border ${borderCls} text-gray-400 hover:text-gray-100 hover:bg-gray-800`}>
+        詳細を表示 →
+      </button>
     </div>
   );
 }
