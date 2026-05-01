@@ -205,7 +205,7 @@ export function NmlEditor({ value, onChange, placeholder }: NmlEditorProps) {
   useEffect(() => {
     if (!showEntityPalette) return;
     setEntityLoading(true);
-    const params = new URLSearchParams({ type: entityType });
+    const params = new URLSearchParams({ type: entityType, lite: "1" });
     if (entitySearch) params.set("q", entitySearch);
     fetch(`/api/admin/entities?${params}`)
       .then((r) => r.json())
