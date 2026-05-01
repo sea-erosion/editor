@@ -91,7 +91,13 @@ export function NovelRenderer({ content }: NovelRendererProps) {
   let textBuffer = ""; let key = 0;
 
   const flushText = () => {
-    if (!textBuffer.trim()) { textBuffer = ""; return; }
+    if (!textBuffer) { return; }
+    // スペースのみでも捨てない（インラインタグ前後の単語間スペースを保持するため）
+    if (!textBuffer.trim()) {
+      // 空白のみの場合はスペースとして出力
+      elements.push(<React.Fragment key={key++}>{textBuffer}</React.Fragment>);
+      textBuffer = ""; return;
+    }
     const paras = renderTextToParagraphs(textBuffer);
     if (paras.length > 0) elements.push(<React.Fragment key={key++}>{paras}</React.Fragment>);
     textBuffer = "";
