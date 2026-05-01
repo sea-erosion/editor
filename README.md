@@ -80,3 +80,81 @@ lib/
   markup-parser.ts            # NMLパーサー
 types/index.ts
 ```
+
+---
+
+## デプロイ / 初期セットアップ
+
+### 自動シード（推奨）
+
+`next start` 時に `instrumentation.ts` 経由で自動的にシードが実行されます。
+
+- DBが**空**の場合のみ初期データを投入（冪等）
+- 既にデータがある場合はスキップ
+
+```bash
+npm run build && npm run start
+```
+
+### 手動シード
+
+```bash
+npm run seed
+# または
+npx tsx db/seed.ts
+```
+
+### 環境変数
+
+| 変数名 | 説明 | デフォルト |
+|---|---|---|
+| `TURSO_DATABASE_URL` | TursoのDB URL | `file:local.db` |
+| `TURSO_AUTH_TOKEN` | Tursoの認証トークン | なし（ローカルは不要） |
+
+### Vercelへのデプロイ
+
+```bash
+# 1. Tursoでデータベースを作成
+turso db create scp-archive
+
+# 2. 接続情報を取得
+turso db show scp-archive --url
+turso db tokens create scp-archive
+
+# 3. Vercelに環境変数を設定
+vercel env add TURSO_DATABASE_URL
+vercel env add TURSO_AUTH_TOKEN
+
+# 4. デプロイ（postbuild でシードも実行される）
+vercel --prod
+```
+
+---
+
+## データ管理
+
+### バックアップ（書き出し）
+
+管理画面 `/admin/backup` から全データをJSONで書き出せます。
+
+または APIを直接叩く：
+
+```bash
+curl http://localhost:3000/api/admin/backup -o backup.json
+```
+
+### インポート（読み込み）
+
+管理画面 `/admin/backup` からJSONファイルを選択してインポート。
+
+2つのモードがあります：
+
+- **統合（merge）** — IDが重複しないレコードのみ追加。既存データを保持。
+- **上書き（replace）** — 全テーブルを削除してから挿入。完全な復元に使用。
+
+```bash
+# API直接利用の例（mergeモード）
+curl -X POST http://localhost:3000/api/admin/backup \
+  -H "Content-Type: application/json" \
+  -d '{"mode":"merge","data":{...}}'
+```
