@@ -1,5 +1,6 @@
-// 編集日時: 2026-04-29
+// 編集日時: 2026-05-03
 "use client";
+import { adminFetch } from "@/lib/admin-fetch";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -7,7 +8,7 @@ interface NovelStat {
   id: string; title: string; slug: string; status: string;
   totalChars: number; published: number; draft: number;
   chapterHistory: Array<{ num: number; chars: number; title: string }>;
-  updatedAt: number | string | null;
+  updatedAt: number | null;
 }
 interface Stats {
   novels: NovelStat[]; totalNovels: number; totalChapters: number; totalChars: number;
@@ -15,11 +16,9 @@ interface Stats {
 }
 
 function fmt(n: number) { return n.toLocaleString(); }
-function relDate(ts: number | string | null) {
+function relDate(ts: number | null) {
   if (!ts) return "—";
-  // APIはDate→JSONで ISO文字列を返す場合があるため両方対応
-  const d = typeof ts === "number" ? new Date(ts * 1000) : new Date(ts);
-  if (isNaN(d.getTime())) return "—";
+  const d = new Date(ts * 1000);
   return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
 }
 
@@ -32,7 +31,7 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/admin/stats").then(r => r.json()).then(setStats).finally(() => setLoading(false));
+    adminFetch("/api/admin/stats").then(r => r.json()).then(setStats).finally(() => setLoading(false));
   }, []);
 
   if (loading) return (
