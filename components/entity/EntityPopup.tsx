@@ -10,8 +10,6 @@ interface EntityPopupProps {
   label: string;
   anchorRef: React.RefObject<HTMLElement | null>;
   onClose: () => void;
-  /** 管理画面でのみ true にする。公開サイトでは登場箇所フッターを非表示にする */
-  showUsages?: boolean;
 }
 
 const ENTITY_COLORS: Record<EntityType, { border: string; badge: string; icon: string }> = {
@@ -52,7 +50,7 @@ const CLASSIFICATION_COLORS: Record<string, string> = {
   Deceased:     "text-red-500 border-red-700",
 };
 
-export function EntityPopup({ entityType, entityId, label, anchorRef, onClose, showUsages = false }: EntityPopupProps) {
+export function EntityPopup({ entityType, entityId, label, anchorRef, onClose }: EntityPopupProps) {
   const [entity, setEntity] = useState<AnyEntity | null>(null);
   const [loading, setLoading] = useState(true);
   const [position, setPosition] = useState({ top: 0, left: 0 });
@@ -72,22 +70,29 @@ export function EntityPopup({ entityType, entityId, label, anchorRef, onClose, s
 
   useEffect(() => {
     if (!anchorRef.current) return;
-    const rect = anchorRef.current.getBoundingClientRect();
-    const scrollY = window.scrollY;
-    const scrollX = window.scrollX;
-    setPosition({
-      top: rect.bottom + scrollY + 8,
-      left: rect.left + scrollX,
+    // DOM 更新後に BoundingRect を取得して競合を防ぐ
+    const id = requestAnimationFrame(() => {
+      if (!anchorRef.current) return;
+      const rect = anchorRef.current.getBoundingClientRect();
+      setPosition({
+        top:  rect.bottom + 8,
+        left: rect.left,
+      });
     });
+    return () => cancelAnimationFrame(id);
   }, [anchorRef]);
 
   // Adjust if overflowing
   useEffect(() => {
     if (!popupRef.current) return;
-    const r = popupRef.current.getBoundingClientRect();
-    if (r.right > window.innerWidth - 16) {
-      setPosition((p) => ({ ...p, left: Math.max(16, window.innerWidth - r.width - 16) }));
-    }
+    const id = requestAnimationFrame(() => {
+      if (!popupRef.current) return;
+      const r = popupRef.current.getBoundingClientRect();
+      if (r.right > window.innerWidth - 16) {
+        setPosition((p) => ({ ...p, left: Math.max(16, window.innerWidth - r.width - 16) }));
+      }
+    });
+    return () => cancelAnimationFrame(id);
   }, [entity]);
 
   // Close on outside click
@@ -259,7 +264,7 @@ export function EntityPopup({ entityType, entityId, label, anchorRef, onClose, s
       </div>
 
       {/* Footer — 逆引き + 詳細リンク */}
-      {showUsages && <UsageFooter entityId={entityId} borderCls={colors.border} detailPath={detailPath} onClose={onClose} pushFn={router.push} />}
+      <UsageFooter entityId={entityId} borderCls={colors.border} detailPath={detailPath} onClose={onClose} pushFn={router.push} />
     </div>
   );
 }
@@ -292,7 +297,7 @@ function UsageFooter({ entityId, borderCls, detailPath, onClose, pushFn }: {
             ? <p className="text-[10px] font-mono text-gray-700 text-center py-1">登場箇所なし</p>
             : usages.map((u) => (
                 <button key={u.chapterId}
-                  onClick={() => { pushFn(`/novels/${u.novelSlug}?chapter=${u.chapterNumber}`); onClose(); }}
+                  onClick={() => { window.open(`/novels/${u.novelSlug}?chapter=${u.chapterNumber}`, "_blank"); }}
                   className="w-full text-left px-2 py-1 rounded hover:bg-gray-800 transition-colors">
                   <span className="text-[10px] font-mono text-gray-600">{u.novelTitle} / </span>
                   <span className="text-[10px] font-mono text-gray-400">{u.chapterNumber}章 {u.chapterTitle}</span>
