@@ -1,4 +1,4 @@
-// 編集日時: 2026-04-29
+// 編集日時: 2026-05-03
 
 type WarnLevel = "danger" | "info" | "caution";
 
@@ -17,7 +17,11 @@ const STYLES: Record<WarnLevel, { border: string; bg: string; icon: string; icon
 export function WarnBanner({ level, title, content }: WarnBannerProps) {
   const s = STYLES[level];
   return (
-    <div className={`my-4 flex gap-3 px-4 py-3 border rounded-md ${s.border} ${s.bg}`}>
+    <div
+      className={`my-4 flex gap-3 px-4 py-3 border rounded-md ${s.border} ${s.bg} ${
+        level === "danger" ? "nml-warn-danger" : ""
+      }`}
+    >
       <span className={`flex-shrink-0 text-sm mt-0.5 font-mono ${s.iconColor}`}>{s.icon}</span>
       <div className="flex-1 min-w-0">
         {title && (
