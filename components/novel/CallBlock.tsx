@@ -24,7 +24,7 @@ export function CallBlock({ header, lines }: CallBlockProps) {
       setTimeout(() => setNoise(false), 120);
     }, 4000 + Math.random() * 3000);
     return () => clearInterval(id);
-  }, []);
+  }, [lines.length]);
 
   return (
     <div className="my-6 border border-gray-700/40 rounded-lg overflow-hidden bg-[#080c10]">
