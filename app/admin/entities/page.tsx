@@ -1,6 +1,8 @@
+// 編集日時: 2026-05-03
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { adminFetch } from "@/lib/admin-fetch";
+import React, { useEffect, useRef, useState } from "react";
 
 type EntityType = "anomaly" | "module" | "incident" | "facility" | "personnel";
 
@@ -79,6 +81,37 @@ const ENTITY_FIELDS: Record<EntityType, Array<{ key: string; label: string; type
 const inputCls = "w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 font-mono outline-none focus:border-amber-700 transition-colors";
 const selectCls = inputCls;
 
+// 誤タップ防止: 1回目で「確認」→2回目で実行
+function DeleteButton({ onConfirm }: { onConfirm: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleClick = () => {
+    if (confirming) {
+      onConfirm();
+      setConfirming(false);
+    } else {
+      setConfirming(true);
+      timerRef.current = setTimeout(() => setConfirming(false), 2500);
+    }
+  };
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  return (
+    <button
+      onClick={handleClick}
+      className={`px-2 py-1 rounded text-xs font-mono transition-all
+        ${confirming
+          ? "text-red-400 border border-red-700/60 bg-red-950/20 hover:bg-red-900/30"
+          : "text-red-900 hover:text-red-500 hover:bg-gray-800/60"
+        }`}
+    >
+      {confirming ? "本当に削除？" : "削除"}
+    </button>
+  );
+}
+
 export default function EntitiesAdminPage() {
   const [activeType, setActiveType] = useState<EntityType>("anomaly");
   const [entities, setEntities] = useState<Record<string, unknown>[]>([]);
@@ -92,7 +125,7 @@ export default function EntitiesAdminPage() {
   const loadEntities = async (type: EntityType) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/entities?type=${type}`);
+      const res = await adminFetch(`/api/admin/entities?type=${type}&full=1`);
       const data = await res.json();
       setEntities(Array.isArray(data) ? data : []);
     } catch { setEntities([]); }
@@ -112,9 +145,14 @@ export default function EntitiesAdminPage() {
     const fd: Record<string, string> = {};
     for (const [k, v] of Object.entries(entity)) {
       if (v === null || v === undefined) continue;
-      if (Array.isArray(v)) fd[k] = v.join(", ");
-      else if (typeof v === "object") fd[k] = JSON.stringify(v, null, 2);
-      else fd[k] = String(v);
+      // DBから返るJSON文字列配列をカンマ区切り表示に変換
+      if (typeof v === "string" && v.startsWith("[")) {
+        try { const arr = JSON.parse(v); fd[k] = Array.isArray(arr) ? arr.join(", ") : v; continue; }
+        catch { /* fall through */ }
+      }
+      if (Array.isArray(v)) { fd[k] = v.join(", "); continue; }
+      if (typeof v === "object") { fd[k] = JSON.stringify(v, null, 2); continue; }
+      fd[k] = String(v);
     }
     setFormData(fd);
     setEditingId(entity.id as string);
@@ -123,7 +161,7 @@ export default function EntitiesAdminPage() {
   };
 
   const parseField = (key: string, value: string, fieldDef: { type?: string }) => {
-    if (!value.trim()) return null;
+    if (!value.trim()) return undefined;
     if (fieldDef.type === "tags") return value.split(",").map((s) => s.trim()).filter(Boolean);
     if (fieldDef.type === "json") {
       try { return JSON.parse(value); } catch { return value; }
@@ -134,7 +172,6 @@ export default function EntitiesAdminPage() {
 
   const handleSave = async () => {
     const fields = ENTITY_FIELDS[activeType];
-    // Validate required
     for (const f of fields) {
       if (f.required && !formData[f.key]?.trim()) {
         setError(`「${f.label}」は必須です`);
@@ -148,22 +185,28 @@ export default function EntitiesAdminPage() {
     for (const f of fields) {
       const raw = formData[f.key];
       if (raw !== undefined && raw !== "") {
-        body[f.key] = parseField(f.key, raw, f);
+        const parsed = parseField(f.key, raw, f);
+        if (parsed !== undefined) body[f.key] = parsed;
       }
     }
 
     try {
       let res: Response;
       if (editingId) {
-        res = await fetch(`/api/admin/entities/${activeType}/${editingId}`, {
-          method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        res = await adminFetch(`/api/admin/entities/${activeType}/${editingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
         });
       } else {
-        res = await fetch(`/api/admin/entities?type=${activeType}`, {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        res = await adminFetch(`/api/admin/entities?type=${activeType}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
         });
       }
-      if (!res.ok) { const d = await res.json(); setError(d.error || "エラー"); setSaving(false); return; }
+      const d = await res.json();
+      if (!res.ok) { setError(d.error || "エラー"); setSaving(false); return; }
       setShowForm(false);
       loadEntities(activeType);
     } catch { setError("サーバーエラー"); }
@@ -172,7 +215,7 @@ export default function EntitiesAdminPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm(`「${id}」を削除しますか？`)) return;
-    await fetch(`/api/admin/entities/${activeType}/${id}`, { method: "DELETE" });
+    await adminFetch(`/api/admin/entities/${activeType}/${id}`, { method: "DELETE" });
     loadEntities(activeType);
   };
 
@@ -242,10 +285,10 @@ export default function EntitiesAdminPage() {
             <table className="w-full text-xs font-mono">
               <thead>
                 <tr className="border-b border-gray-800 text-gray-600">
-                  <th className="text-left px-5 py-2.5 font-normal">ID</th>
-                  <th className="text-left px-3 py-2.5 font-normal">名称</th>
-                  <th className="text-left px-3 py-2.5 font-normal hidden sm:table-cell">分類/状態</th>
-                  <th className="px-3 py-2.5 font-normal w-20"></th>
+                  <th className="text-left px-5 py-3 font-normal">ID</th>
+                  <th className="text-left px-3 py-3 font-normal">名称</th>
+                  <th className="text-left px-3 py-3 font-normal hidden sm:table-cell">分類/状態</th>
+                  <th className="px-3 py-3 font-normal w-24"></th>
                 </tr>
               </thead>
               <tbody>
@@ -256,18 +299,17 @@ export default function EntitiesAdminPage() {
                   const status = (entity.status || "") as string;
                   return (
                     <tr key={id} className="border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors">
-                      <td className={`px-5 py-3 ${TYPE_COLORS[activeType].split(" ")[0]}`}>{id}</td>
-                      <td className="px-3 py-3 text-gray-300">{name}</td>
-                      <td className="px-3 py-3 text-gray-600 hidden sm:table-cell">
+                      <td className={`px-5 py-4 ${TYPE_COLORS[activeType].split(" ")[0]}`}>{id}</td>
+                      <td className="px-3 py-4 text-gray-300">{name}</td>
+                      <td className="px-3 py-4 text-gray-600 hidden sm:table-cell">
                         {sub && <span className="mr-2">{sub}</span>}
                         {status && <span className="text-gray-700">{status}</span>}
                       </td>
-                      <td className="px-3 py-3">
-                        <div className="flex justify-end gap-2">
+                      <td className="px-3 py-4">
+                        <div className="flex justify-end gap-3">
                           <button onClick={() => openEdit(entity as Record<string, unknown>)}
-                            className="text-gray-600 hover:text-gray-300 transition-colors px-1">編集</button>
-                          <button onClick={() => handleDelete(id)}
-                            className="text-red-800 hover:text-red-500 transition-colors px-1">削除</button>
+                            className="text-gray-500 hover:text-gray-200 transition-colors px-2 py-1 rounded hover:bg-gray-800/60 text-xs font-mono">編集</button>
+                          <DeleteButton onConfirm={() => handleDelete(id)} />
                         </div>
                       </td>
                     </tr>
