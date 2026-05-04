@@ -1,11 +1,10 @@
 // 編集日時: 2026-04-29
 
-export function TimeStamp({ time, content }: { time: string; content: string }) {
+export function TimeStamp({ time }: { time: string; content?: string }) {
   return (
-    <div className="flex items-baseline gap-3 my-1.5">
-      <span className="flex-shrink-0 text-[10px] font-mono text-gray-700 tabular-nums">[{time}]</span>
-      <span className="text-sm text-gray-300 leading-relaxed">{content}</span>
-    </div>
+    <span className="inline-flex items-baseline gap-1 mx-0.5">
+      <span className="text-[10px] font-mono text-gray-600 tabular-nums">[{time}]</span>
+    </span>
   );
 }
 
