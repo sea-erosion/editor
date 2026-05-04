@@ -1,6 +1,6 @@
 import { db } from "@/db/client";
 import { chapters } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 // GET /api/admin/chapters?novelId=xxx
@@ -26,6 +26,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "novelId, title, chapterNumber required" }, { status: 400 });
     }
     const id = `ch-${Date.now()}`;
+    // 同一 novel 内で chapterNumber の重複を防ぐ
+    const duplicate = await db.select().from(chapters)
+      .where(and(eq(chapters.novelId, novelId), eq(chapters.chapterNumber, chapterNumber)));
+    if (duplicate.length > 0) {
+      return NextResponse.json({ error: `章番号 ${chapterNumber} は既に使用されています` }, { status: 409 });
+    }
     await db.insert(chapters).values({
       id,
       novelId,
