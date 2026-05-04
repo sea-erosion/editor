@@ -1,4 +1,4 @@
-// 編集日時: 2026-04-29
+// 編集日時: 2026-05-03 (fix: インライントークンを段落内に埋め込む / add: REPORT, TIMELINE, CLASSIFIED, TABLE, TRANSMISSION, FONT, COLOR, BLINK, SPOILER, MARK, SHAKE, LINK)
 "use client";
 
 import { CallBlock }          from "@/components/novel/CallBlock";
@@ -13,19 +13,26 @@ import { FootnoteBlock, NoteRef } from "@/components/novel/Footnote";
 import { GlitchText }         from "@/components/novel/GlitchText";
 import { GlossaryBlock }      from "@/components/novel/GlossaryBlock";
 import { HrDivider }          from "@/components/novel/HrDivider";
-import { EmText, StrongText } from "@/components/novel/InlineDecorations";
+import { EmText, StrongText, ColorText, BlinkText, SpoilerText, MarkText, ShakeText, LinkText } from "@/components/novel/InlineDecorations";
 import { InterviewBlock }     from "@/components/novel/InterviewBlock";
 import { LogBlock }           from "@/components/novel/LogBlock";
 import { SysLogLine }         from "@/components/novel/SysLogLine";
 import { TerminalBlock }      from "@/components/novel/TerminalBlock";
 import { WarnBanner }         from "@/components/novel/WarnBanner";
 import { CounterBadge, ImagePlaceholder, PovMarker, TimeStamp } from "@/components/novel/StatusWidgets";
+import { ReportBlock }       from "@/components/novel/ReportBlock";
+import { TimelineBlock }     from "@/components/novel/TimelineBlock";
+import { ClassifiedBlock }   from "@/components/novel/ClassifiedBlock";
+import { TableBlock }        from "@/components/novel/TableBlock";
+import { TransmissionBlock } from "@/components/novel/TransmissionBlock";
+import { FontText }          from "@/components/novel/FontText";
 import {
   parseChatMessages, parseChoice3Options, parseChoiceOptions,
   parseDialogLines, parseFootnoteItems, parseGlossaryTerms,
   parseInterviewLines, parseNovelMarkup, parseVoiceLines,
+  parseTimelineEvents, parseTableRows,
 } from "@/lib/markup-parser";
-import { EntityType } from "@/types";
+import { EntityType, Token } from "@/types";
 import React, { useMemo, useState } from "react";
 import { EntityTag } from "../entity/EntityTag";
 
@@ -51,26 +58,13 @@ function RedactedBlock({ content, level }: { content: string; level?: number }) 
   );
 }
 
-function renderTextToParagraphs(text: string): React.ReactNode[] {
-  return text.split(/\n\n+/).map((para, pi) => {
-    const trimmed = para.trim(); if (!trimmed) return null;
-    const lines = para.split("\n");
-    const nodes: React.ReactNode[] = [];
-    lines.forEach((line, li) => { nodes.push(line); if (li < lines.length-1) nodes.push(<br key={`br-${pi}-${li}`}/>); });
-    return <p key={pi} className="my-4 leading-[1.9] text-gray-200">{nodes}</p>;
-  }).filter(Boolean) as React.ReactNode[];
-}
-
 const ENTITY_TOKEN_TYPES: Record<string, EntityType> = {
   anomaly_tag:"anomaly", module_tag:"module", incident_tag:"incident",
   facility_tag:"facility", personnel_tag:"personnel",
 };
-const INLINE_TYPES = new Set([
-  "ruby","dot","em","strong","corrupt","note_ref","timestamp",
-  ...Object.keys(ENTITY_TOKEN_TYPES),
-]);
 
-function renderInlineToken(token: ReturnType<typeof parseNovelMarkup>[0], key: number): React.ReactNode {
+// インライントークンを React ノードに変換
+function renderInlineToken(token: Token, key: number): React.ReactNode {
   if (token.type in ENTITY_TOKEN_TYPES)
     return <EntityTag key={key} entityType={ENTITY_TOKEN_TYPES[token.type]} entityId={token.entityId!} label={token.label!} />;
   switch (token.type) {
@@ -80,42 +74,86 @@ function renderInlineToken(token: ReturnType<typeof parseNovelMarkup>[0], key: n
     case "strong":  return <StrongText key={key} content={token.content} />;
     case "corrupt": { const lv = token.meta?.level ? parseInt(token.meta.level,10) : 1; return <CorruptText key={key} content={token.content} level={lv} />; }
     case "note_ref": return <NoteRef key={key} num={parseInt(token.content,10)} />;
-    case "timestamp": return <TimeStamp key={key} time={token.content} content="" />;
+    case "timestamp": return <TimeStamp key={key} time={token.content} />;
+    case "font":      return <FontText key={key} fontKey={token.label!} content={token.content} />;
+    case "color":     return <ColorText key={key} color={token.label!} content={token.content} />;
+    case "blink":     return <BlinkText key={key} content={token.content} />;
+    case "spoiler":   return <SpoilerText key={key} content={token.content} />;
+    case "mark":      return <MarkText key={key} content={token.content} />;
+    case "shake":     return <ShakeText key={key} content={token.content} />;
+    case "link":      return <LinkText key={key} href={token.label!} content={token.content} />;
     default: return <React.Fragment key={key}>{token.content}</React.Fragment>;
   }
 }
 
+// テキスト文字列をインライントークンと混在したまま段落ノードに変換する
+// (インライントークンはテキストセグメントとして混在可能)
+type ParagraphChild = string | React.ReactNode;
+
+function renderMixedText(segments: ParagraphChild[], startKey: number): { nodes: React.ReactNode[]; nextKey: number } {
+  const nodes: React.ReactNode[] = [];
+  let key = startKey;
+  for (const seg of segments) {
+    if (typeof seg === "string") {
+      // 段落分割(\n\n)とソフト改行(\n)を処理
+      const paras = seg.split(/\n\n+/);
+      paras.forEach((para, pi) => {
+        if (!para.trim()) return;
+        const lines = para.split("\n");
+        const lineNodes: React.ReactNode[] = [];
+        lines.forEach((line, li) => {
+          lineNodes.push(line);
+          if (li < lines.length - 1) lineNodes.push(<br key={`br-${key++}-${pi}-${li}`} />);
+        });
+        nodes.push(<p key={key++} className="my-4 leading-[1.9] text-gray-200">{lineNodes}</p>);
+      });
+    } else {
+      nodes.push(seg);
+    }
+  }
+  return { nodes, nextKey: key };
+}
+
+const INLINE_TYPES = new Set([
+  "ruby","dot","em","strong","corrupt","note_ref","timestamp","font","color","blink","spoiler","mark","shake","link",
+  ...Object.keys(ENTITY_TOKEN_TYPES),
+]);
+
+const BLOCK_INLINE_TYPES = new Set(["timestamp"]); // ブロックとして独立させないインライン
+
 export function NovelRenderer({ content }: NovelRendererProps) {
   const tokens = useMemo(() => parseNovelMarkup(content), [content]);
   const elements: React.ReactNode[] = [];
-  let textBuffer = ""; let key = 0;
+  // 段落に蓄積するセグメント（文字列 or インライン React ノード）
+  let paraSegments: ParagraphChild[] = [];
+  let key = 0;
 
-  const flushText = () => {
-    if (!textBuffer) { return; }
-    // スペースのみでも捨てない（インラインタグ前後の単語間スペースを保持するため）
-    if (!textBuffer.trim()) {
-      // 空白のみの場合はスペースとして出力
-      elements.push(<React.Fragment key={key++}>{textBuffer}</React.Fragment>);
-      textBuffer = ""; return;
+  const flushPara = () => {
+    if (paraSegments.length === 0) return;
+    // 空文字列のみなら捨てる
+    const hasContent = paraSegments.some(s => typeof s !== "string" || s.trim());
+    if (hasContent) {
+      const { nodes, nextKey } = renderMixedText(paraSegments, key);
+      key = nextKey;
+      if (nodes.length > 0) elements.push(...nodes);
     }
-    const paras = renderTextToParagraphs(textBuffer);
-    if (paras.length > 0) elements.push(<React.Fragment key={key++}>{paras}</React.Fragment>);
-    textBuffer = "";
+    paraSegments = [];
   };
 
   for (const token of tokens) {
-    if (token.type === "text") { textBuffer += token.content; continue; }
-
-    // タイムスタンプはテキストと同じ行に埋め込む特殊インライン
-    if (token.type === "timestamp") {
-      flushText();
-      elements.push(<TimeStamp key={key++} time={token.content} content="" />);
+    if (token.type === "text") {
+      paraSegments.push(token.content);
       continue;
     }
 
-    if (INLINE_TYPES.has(token.type)) { flushText(); elements.push(renderInlineToken(token, key++)); continue; }
+    // インライントークンは段落バッファに React ノードとして追加する
+    if (INLINE_TYPES.has(token.type)) {
+      paraSegments.push(renderInlineToken(token, key++));
+      continue;
+    }
 
-    flushText();
+    // ブロックトークン → まず段落をフラッシュしてからブロックを追加
+    flushPara();
 
     switch (token.type) {
       case "header":
@@ -140,9 +178,14 @@ export function NovelRenderer({ content }: NovelRendererProps) {
       case "image_placeholder": elements.push(<ImagePlaceholder key={key++} type={token.meta?.imgType??""} caption={token.content}/>); break;
       case "counter":  elements.push(<CounterBadge key={key++} label={token.label??""} value={token.content}/>); break;
       case "pov":      elements.push(<PovMarker key={key++} name={token.content}/>); break;
+      case "report":   elements.push(<ReportBlock key={key++} classification={token.label ?? ""} date={token.meta?.date} content={token.content}/>); break;
+      case "timeline": elements.push(<TimelineBlock key={key++} events={parseTimelineEvents(token.content)}/>); break;
+      case "classified": elements.push(<ClassifiedBlock key={key++} reason={token.meta?.reason} content={token.content}/>); break;
+      case "table":    elements.push(<TableBlock key={key++} rows={parseTableRows(token.content)}/>); break;
+      case "transmission": elements.push(<TransmissionBlock key={key++} from={token.label ?? ""} to={token.meta?.to ?? ""} content={token.content}/>); break;
       default:         elements.push(<span key={key++} className="text-gray-300">{token.content}</span>);
     }
   }
-  flushText();
+  flushPara();
   return <div className="novel-content font-serif text-[1.05rem]">{elements}</div>;
 }
