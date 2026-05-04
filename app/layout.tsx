@@ -41,7 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </div>
         </header>
-        <main className="relative z-10 max-w-5xl mx-auto px-4 py-8">{children}</main>
+        <main className="relative z-10 max-w-5xl mx-auto px-4 py-8 pb-24 lg:pb-8">{children}</main>
         <footer className="relative z-10 border-t border-gray-800/50 mt-16 py-6">
           <div className="max-w-5xl mx-auto px-4 flex items-center justify-between">
             <p className="text-[10px] font-mono text-gray-700">© 財団 — 全権留保</p>
