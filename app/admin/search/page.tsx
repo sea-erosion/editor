@@ -1,5 +1,6 @@
-// 編集日時: 2026-04-29
+// 編集日時: 2026-05-03
 "use client";
+import { adminFetch } from "@/lib/admin-fetch";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 
@@ -24,7 +25,7 @@ export default function SearchPage() {
   const search = useCallback(async (query: string) => {
     if (!query.trim()) return;
     setLoading(true); setSearched(true);
-    const res = await fetch(`/api/admin/search?q=${encodeURIComponent(query)}`);
+    const res = await adminFetch(`/api/admin/search?q=${encodeURIComponent(query)}`);
     const data = await res.json();
     setChapters(data.chapters ?? []);
     setEntities(data.entities ?? []);
@@ -67,15 +68,18 @@ export default function SearchPage() {
               ? <p className="text-xs font-mono text-gray-700">該当なし</p>
               : <div className="space-y-2">
                   {chapters.map((ch) => (
-                    <Link key={ch.id} href={`/novels/${ch.novelSlug}?chapter=${ch.chapterNumber}`}
-                      className="block border border-gray-800 rounded-lg px-4 py-3 hover:border-gray-700 hover:bg-gray-900/40 transition-all">
+                    <div key={ch.id} className="block border border-gray-800 rounded-lg px-4 py-3 hover:border-gray-700 hover:bg-gray-900/40 transition-all">
                       <div className="flex items-center gap-2 mb-1">
                         {ch.matchInTitle && <span className="text-[9px] font-mono bg-amber-900/30 text-amber-400 border border-amber-800 px-1.5 py-0.5 rounded">タイトル一致</span>}
                         <span className="text-[10px] font-mono text-gray-600">{ch.novelTitle} / {ch.chapterNumber}章</span>
+                        <div className="ml-auto flex gap-2">
+                          <Link href={`/admin/editor?novelId=${ch.novelId}&chapterId=${ch.id}`} className="text-[10px] font-mono text-gray-600 hover:text-amber-400 transition-colors">編集</Link>
+                          <Link href={`/novels/${ch.novelSlug}?chapter=${ch.chapterNumber}`} className="text-[10px] font-mono text-gray-600 hover:text-gray-300 transition-colors">公開ページ</Link>
+                        </div>
                       </div>
                       <p className="text-sm text-gray-200 font-medium mb-1">{ch.title}</p>
                       <p className="text-xs text-gray-600 font-mono leading-relaxed">{ch.snippet}</p>
-                    </Link>
+                    </div>
                   ))}
                 </div>
             }
