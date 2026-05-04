@@ -1,5 +1,6 @@
-// 編集日時: 2026-04-29
+// 編集日時: 2026-05-03
 "use client";
+import { adminFetch } from "@/lib/admin-fetch";
 import Link from "next/link";
 import { useRef, useState } from "react";
 
@@ -24,7 +25,7 @@ export default function BackupPage() {
   const handleExport = async () => {
     setExportPhase("loading");
     try {
-      const res  = await fetch("/api/admin/backup");
+      const res  = await adminFetch("/api/admin/backup");
       const blob = await res.blob();
       const cd   = res.headers.get("Content-Disposition") ?? "";
       const name = cd.match(/filename="([^"]+)"/)?.[1] ?? "backup.json";
@@ -71,7 +72,7 @@ export default function BackupPage() {
     try {
       const text = await file.text();
       const json = JSON.parse(text);
-      const res  = await fetch("/api/admin/backup", {
+      const res  = await adminFetch("/api/admin/backup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode, data: json.data }),
