@@ -1,17 +1,12 @@
 // 編集日時: 2026-04-29
-/**
- * GET  /api/admin/backup        → 全データをJSON形式で書き出し（ダウンロード）
- * POST /api/admin/backup        → JSONを受け取ってDBに一括書き込み（インポート）
- *   body: { mode: "merge" | "replace", data: BackupData }
- *   - replace: 全テーブルを削除してから挿入
- *   - merge:   IDが衝突しない場合のみ挿入（既存データを保持）
- */
 import { db } from "@/db/client";
 import { anomalies, chapters, facilities, incidents, modules, novels, personnel } from "@/db/schema";
 import { NextRequest, NextResponse } from "next/server";
 
 const TABLES = { anomalies, modules, incidents, facilities, personnel, novels, chapters } as const;
 type TableKey = keyof typeof TABLES;
+const ORDER: TableKey[]  = ["anomalies","modules","incidents","facilities","personnel","novels","chapters"];
+const REVERSE: TableKey[] = [...ORDER].reverse();
 
 // ── エクスポート ─────────────────────────────────────────────────────
 export async function GET() {
@@ -25,15 +20,13 @@ export async function GET() {
       db.select().from(novels),
       db.select().from(chapters),
     ]);
-
     const backup = {
       version: "1.0",
       exportedAt: new Date().toISOString(),
       counts: { anomalies: ano.length, modules: mod.length, incidents: inc.length, facilities: fac.length, personnel: per.length, novels: nov.length, chapters: cha.length },
       data: { anomalies: ano, modules: mod, incidents: inc, facilities: fac, personnel: per, novels: nov, chapters: cha },
     };
-
-    const filename = `scp-archive-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    const filename = `scp-archive-backup-${new Date().toISOString().slice(0,10)}.json`;
     return new NextResponse(JSON.stringify(backup, null, 2), {
       headers: {
         "Content-Type": "application/json; charset=utf-8",
@@ -41,7 +34,7 @@ export async function GET() {
       },
     });
   } catch (e) {
-    console.error(e);
+    console.error("[backup GET]", e);
     return NextResponse.json({ error: "Export failed" }, { status: 500 });
   }
 }
@@ -49,23 +42,14 @@ export async function GET() {
 // ── インポート ───────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as { mode: "merge" | "replace"; data: Record<TableKey, unknown[]> };
+    const body = await req.json() as { mode: "merge"|"replace"; data: Record<TableKey, unknown[]> };
     const { mode, data } = body;
-
-    if (!data || typeof data !== "object") {
-      return NextResponse.json({ error: "data field required" }, { status: 400 });
-    }
-
-    const ORDER: TableKey[] = ["anomalies", "modules", "incidents", "facilities", "personnel", "novels", "chapters"];
-    const REVERSE: TableKey[] = [...ORDER].reverse();
+    if (!data || typeof data !== "object") return NextResponse.json({ error: "data field required" }, { status: 400 });
 
     const results: Record<string, { inserted: number; skipped: number }> = {};
 
     if (mode === "replace") {
-      // 外部キー依存順に削除
-      for (const key of REVERSE) {
-        await db.delete(TABLES[key] as any);
-      }
+      for (const key of REVERSE) await db.delete(TABLES[key] as any);
     }
 
     for (const key of ORDER) {
@@ -75,34 +59,34 @@ export async function POST(req: NextRequest) {
       let inserted = 0; let skipped = 0;
       for (const row of rows) {
         try {
-          // timestamp列とnull値は除外してDBのDEFAULTに任せる
-          const TIMESTAMP_KEYS = new Set(["createdAt", "updatedAt", "created_at", "updated_at"]);
-          const INTEGER_COLS = new Set(["clearance", "capacity", "clearanceRequired", "chapterNumber"]);
-          const serialized: Record<string, unknown> = {};
+          // DBのJSON配列フィールドはエクスポート時点で既に文字列化済み
+          // → typeof string のものはそのまま渡す（二重エスケープしない）
+          const values: Record<string, unknown> = {};
           for (const [k, v] of Object.entries(row as Record<string, unknown>)) {
-            if (TIMESTAMP_KEYS.has(k)) continue; // DBのDEFAULT(unixepoch())に任せる
-            if (v === null || v === undefined) continue;
-            if (Array.isArray(v)) { serialized[k] = JSON.stringify(v); continue; }
-            if (typeof v === "object") { serialized[k] = JSON.stringify(v); continue; }
-            if (INTEGER_COLS.has(k)) { const n = Number(v); if (!isNaN(n)) serialized[k] = n; continue; }
-            serialized[k] = v;
+            if (v === null || v === undefined) { values[k] = null; continue; }
+            // createdAt / updatedAt が ISO文字列の場合は UNIX epoch (秒) に変換
+            if ((k === "createdAt" || k === "updatedAt") && typeof v === "string") {
+              const ms = Date.parse(v);
+              values[k] = isNaN(ms) ? null : Math.floor(ms / 1000);
+              continue;
+            }
+            values[k] = typeof v === "string" ? v
+              : Array.isArray(v)              ? JSON.stringify(v)
+              : typeof v === "object"         ? JSON.stringify(v)
+              : v;
           }
-          await db.insert(TABLES[key] as any).values(serialized);
+          await db.insert(TABLES[key] as any).values(values);
           inserted++;
         } catch (e: any) {
-          if (e?.message?.includes("UNIQUE") || e?.message?.includes("SQLITE_CONSTRAINT")) {
-            skipped++;
-          } else {
-            throw e;
-          }
+          if (e?.message?.includes("UNIQUE") || e?.message?.includes("SQLITE_CONSTRAINT")) skipped++;
+          else throw e;
         }
       }
       results[key] = { inserted, skipped };
     }
-
     return NextResponse.json({ ok: true, mode, results });
   } catch (e) {
-    console.error(e);
+    console.error("[backup POST]", e);
     return NextResponse.json({ error: "Import failed", detail: String(e) }, { status: 500 });
   }
 }
