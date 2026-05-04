@@ -1,4 +1,4 @@
-// 編集日時: 2026-04-29
+// 編集日時: 2026-05-03 (fix: ブロック content 内のインラインタグも再帰パース / add: REPORT, TIMELINE, CLASSIFIED, TABLE, TRANSMISSION, FONT)
 import { Token } from "@/types";
 
 /**
@@ -35,6 +35,53 @@ import { Token } from "@/types";
  * [CORRUPT|テキスト|level=N]  [NOTE|番号]  [TIME|時刻]
  */
 
+// インラインパターン定義（ブロック外でもブロック content 内でも使用）
+const INLINE_PATTERNS: Array<{ pattern: RegExp; handler: (m: RegExpExecArray) => Token }> = [
+  { pattern: /\[ANOMALY\|([^\]|]+)\|([^\]]+)\]/g,  handler: (m) => ({ type: "anomaly_tag",   content: m[2], entityId: m[1], label: m[2] }) },
+  { pattern: /\[MODULE\|([^\]|]+)\|([^\]]+)\]/g,   handler: (m) => ({ type: "module_tag",    content: m[2], entityId: m[1], label: m[2] }) },
+  { pattern: /\[INCIDENT\|([^\]|]+)\|([^\]]+)\]/g, handler: (m) => ({ type: "incident_tag",  content: m[2], entityId: m[1], label: m[2] }) },
+  { pattern: /\[FACILITY\|([^\]|]+)\|([^\]]+)\]/g, handler: (m) => ({ type: "facility_tag",  content: m[2], entityId: m[1], label: m[2] }) },
+  { pattern: /\[PERSON\|([^\]|]+)\|([^\]]+)\]/g,   handler: (m) => ({ type: "personnel_tag", content: m[2], entityId: m[1], label: m[2] }) },
+  { pattern: /\[RUBY\|([^\]|]+)\|([^\]]+)\]/g,     handler: (m) => ({ type: "ruby",    content: m[1], label: m[2] }) },
+  { pattern: /\[DOT\|([^\]]+)\]/g,                 handler: (m) => ({ type: "dot",     content: m[1] }) },
+  { pattern: /\[EM\|([^\]]+)\]/g,                   handler: (m) => ({ type: "em",      content: m[1] }) },
+  { pattern: /\[STRONG\|([^\]]+)\]/g,               handler: (m) => ({ type: "strong",  content: m[1] }) },
+  { pattern: /\[CORRUPT\|([^\]|]+)(?:\|([^\]]*))?\]/g, handler: (m) => ({ type: "corrupt", content: m[1],
+      meta: m[2] ? Object.fromEntries(m[2].split(",").map((p) => p.split("=") as [string,string])) : {} }) },
+  { pattern: /\[NOTE\|(\d+)\]/g,                   handler: (m) => ({ type: "note_ref", content: m[1] }) },
+  { pattern: /\[TIME\|([^\]]+)\]/g,                 handler: (m) => ({ type: "timestamp", content: m[1] }) },
+  { pattern: /\[FONT\|([^\]|]+)\|([^\]]+)\]/g,          handler: (m) => ({ type: "font",    content: m[2], label: m[1] }) },
+  { pattern: /\[COLOR\|([^\]|]+)\|([^\]]+)\]/g,         handler: (m) => ({ type: "color",   content: m[2], label: m[1] }) },
+  { pattern: /\[BLINK\|([^\]]+)\]/g,                     handler: (m) => ({ type: "blink",   content: m[1] }) },
+  { pattern: /\[SPOILER\|([^\]]+)\]/g,                   handler: (m) => ({ type: "spoiler", content: m[1] }) },
+  { pattern: /\[MARK\|([^\]]+)\]/g,                      handler: (m) => ({ type: "mark",    content: m[1] }) },
+  { pattern: /\[SHAKE\|([^\]]+)\]/g,                     handler: (m) => ({ type: "shake",   content: m[1] }) },
+  { pattern: /\[LINK\|([^\]|]+)\|([^\]]+)\]/g,          handler: (m) => ({ type: "link",    content: m[2], label: m[1] }) },
+];
+
+/** テキストセグメントにインラインパターンを適用してトークン列を返す */
+function parseInlineSegment(text: string): Token[] {
+  const result: Token[] = [];
+  type IM = { index: number; end: number; token: Token };
+  const matches: IM[] = [];
+  for (const { pattern, handler } of INLINE_PATTERNS) {
+    pattern.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = pattern.exec(text)) !== null)
+      matches.push({ index: m.index, end: m.index + m[0].length, token: handler(m) });
+  }
+  matches.sort((a, b) => a.index - b.index);
+  const filtered: IM[] = []; let cur = 0;
+  for (const x of matches) { if (x.index >= cur) { filtered.push(x); cur = x.end; } }
+  let pos = 0;
+  for (const x of filtered) {
+    if (x.index > pos) { const t = text.slice(pos, x.index); if (t) result.push({ type: "text", content: t }); }
+    result.push(x.token); pos = x.end;
+  }
+  if (pos < text.length) { const t = text.slice(pos); if (t) result.push({ type: "text", content: t }); }
+  return result;
+}
+
 export function parseNovelMarkup(source: string): Token[] {
   const tokens: Token[] = [];
 
@@ -59,55 +106,38 @@ export function parseNovelMarkup(source: string): Token[] {
       handler: (m) => ({ type: "dialog", content: m[1].trim() }) },
     { pattern: /\[GLOSSARY\]([\s\S]*?)\[\/GLOSSARY\]/g,
       handler: (m) => ({ type: "glossary", content: m[1].trim() }) },
-    // LOG
     { pattern: /\[LOG\|([^\]|]+)(?:\|([^\]]*))?\]([\s\S]*?)\[\/LOG\]/g,
       handler: (m) => ({ type: "log", content: m[3].trim(), label: m[1].trim(), meta: { date: m[2]?.trim() ?? "" } }) },
-    // CALL
     { pattern: /\[CALL\|([^\]]+)\]([\s\S]*?)\[\/CALL\]/g,
       handler: (m) => ({ type: "call", content: m[2].trim(), label: m[1].trim() }) },
-    // FOOTNOTE
     { pattern: /\[FOOTNOTE\]([\s\S]*?)\[\/FOOTNOTE\]/g,
       handler: (m) => ({ type: "footnote", content: m[1].trim() }) },
-    // INTERVIEW
     { pattern: /\[INTERVIEW\|([^\]]+)\]([\s\S]*?)\[\/INTERVIEW\]/g,
       handler: (m) => ({ type: "interview", content: m[2].trim(), label: m[1].trim() }) },
-    // CLEARANCE
     { pattern: /\[CLEARANCE\|(\d+)\]([\s\S]*?)\[\/CLEARANCE\]/g,
       handler: (m) => ({ type: "clearance", content: m[2].trim(), meta: { level: m[1] } }) },
-    // WARN
     { pattern: /\[WARN\|(danger|info|caution)(?:\|([^\]]*))?\]([\s\S]*?)\[\/WARN\]/g,
       handler: (m) => ({ type: "warn", content: m[3].trim(), meta: { level: m[1], title: m[2]?.trim() ?? "" } }) },
-    // SYS
     { pattern: /\[SYS\|([^\]|]+)(?:\|([^\]]*))?\]/g,
       handler: (m) => ({ type: "sys", content: m[1].trim(), label: m[2]?.trim() ?? "" }) },
-    // HR
     { pattern: /\[HR(?:\|([^\]]*))?\]/g,
       handler: (m) => ({ type: "hr", content: m[1]?.trim() ?? "" }) },
-    // IMAGE
     { pattern: /\[IMAGE\|([^\]|]+)\|([^\]]+)\]/g,
       handler: (m) => ({ type: "image_placeholder", content: m[2].trim(), meta: { imgType: m[1].trim() } }) },
-    // COUNTER
     { pattern: /\[COUNTER\|([^\]|]+)\|([^\]]+)\]/g,
       handler: (m) => ({ type: "counter", content: m[2].trim(), label: m[1].trim() }) },
-    // POV
     { pattern: /\[POV\|([^\]]+)\]/g,
       handler: (m) => ({ type: "pov", content: m[1].trim() }) },
-  ];
-
-  const inlinePatterns: Array<{ pattern: RegExp; handler: (m: RegExpExecArray) => Token }> = [
-    { pattern: /\[ANOMALY\|([^\]|]+)\|([^\]]+)\]/g,  handler: (m) => ({ type: "anomaly_tag",   content: m[2], entityId: m[1], label: m[2] }) },
-    { pattern: /\[MODULE\|([^\]|]+)\|([^\]]+)\]/g,   handler: (m) => ({ type: "module_tag",    content: m[2], entityId: m[1], label: m[2] }) },
-    { pattern: /\[INCIDENT\|([^\]|]+)\|([^\]]+)\]/g, handler: (m) => ({ type: "incident_tag",  content: m[2], entityId: m[1], label: m[2] }) },
-    { pattern: /\[FACILITY\|([^\]|]+)\|([^\]]+)\]/g, handler: (m) => ({ type: "facility_tag",  content: m[2], entityId: m[1], label: m[2] }) },
-    { pattern: /\[PERSON\|([^\]|]+)\|([^\]]+)\]/g,   handler: (m) => ({ type: "personnel_tag", content: m[2], entityId: m[1], label: m[2] }) },
-    { pattern: /\[RUBY\|([^\]|]+)\|([^\]]+)\]/g,     handler: (m) => ({ type: "ruby",    content: m[1], label: m[2] }) },
-    { pattern: /\[DOT\|([^\]]+)\]/g,                 handler: (m) => ({ type: "dot",     content: m[1] }) },
-    { pattern: /\[EM\|([^\]]+)\]/g,                   handler: (m) => ({ type: "em",      content: m[1] }) },
-    { pattern: /\[STRONG\|([^\]]+)\]/g,               handler: (m) => ({ type: "strong",  content: m[1] }) },
-    { pattern: /\[CORRUPT\|([^\]|]+)(?:\|([^\]]*))?\]/g, handler: (m) => ({ type: "corrupt", content: m[1],
-        meta: m[2] ? Object.fromEntries(m[2].split(",").map((p) => p.split("=") as [string,string])) : {} }) },
-    { pattern: /\[NOTE\|(\d+)\]/g,                   handler: (m) => ({ type: "note_ref", content: m[1] }) },
-    { pattern: /\[TIME\|([^\]]+)\]/g,                 handler: (m) => ({ type: "timestamp", content: m[1] }) },
+    { pattern: /\[REPORT\|([^\]|]+)(?:\|([^\]]*))?\]([\s\S]*?)\[\/REPORT\]/g,
+      handler: (m) => ({ type: "report", content: m[3].trim(), label: m[1].trim(), meta: { date: m[2]?.trim() ?? "" } }) },
+    { pattern: /\[TIMELINE\]([\s\S]*?)\[\/TIMELINE\]/g,
+      handler: (m) => ({ type: "timeline", content: m[1].trim() }) },
+    { pattern: /\[CLASSIFIED(?:\|([^\]]*))?\]([\s\S]*?)\[\/CLASSIFIED\]/g,
+      handler: (m) => ({ type: "classified", content: m[2].trim(), meta: { reason: m[1]?.trim() ?? "" } }) },
+    { pattern: /\[TABLE\]([\s\S]*?)\[\/TABLE\]/g,
+      handler: (m) => ({ type: "table", content: m[1].trim() }) },
+    { pattern: /\[TRANSMISSION\|([^\]|]+)\|([^\]]+)\]([\s\S]*?)\[\/TRANSMISSION\]/g,
+      handler: (m) => ({ type: "transmission", content: m[3].trim(), label: m[1].trim(), meta: { to: m[2].trim() } }) },
   ];
 
   type Seg = { kind: "text"; value: string } | { kind: "token"; token: Token };
@@ -131,26 +161,10 @@ export function parseNovelMarkup(source: string): Token[] {
     segs.splice(0, segs.length, ...next);
   }
 
+  // テキストセグメントにインラインパターンを適用
   for (const seg of segs) {
     if (seg.kind === "token") { tokens.push(seg.token); continue; }
-    const text = seg.value;
-    type IM = { index: number; end: number; token: Token };
-    const matches: IM[] = [];
-    for (const { pattern, handler } of inlinePatterns) {
-      pattern.lastIndex = 0;
-      let m: RegExpExecArray | null;
-      while ((m = pattern.exec(text)) !== null)
-        matches.push({ index: m.index, end: m.index + m[0].length, token: handler(m) });
-    }
-    matches.sort((a, b) => a.index - b.index);
-    const filtered: IM[] = []; let cur = 0;
-    for (const x of matches) { if (x.index >= cur) { filtered.push(x); cur = x.end; } }
-    let pos = 0;
-    for (const x of filtered) {
-      if (x.index > pos) { const t = text.slice(pos, x.index); if (t) tokens.push({ type: "text", content: t }); }
-      tokens.push(x.token); pos = x.end;
-    }
-    if (pos < text.length) { const t = text.slice(pos); if (t) tokens.push({ type: "text", content: t }); }
+    tokens.push(...parseInlineSegment(seg.value));
   }
   return tokens;
 }
@@ -198,14 +212,39 @@ export function parseFootnoteItems(s: string) {
 }
 export function parseInterviewLines(s: string) {
   const r: Array<{ type: "Q"|"A"; speaker?: string; text: string }> = [];
+  // Q と A を単一パターンで位置順に取得
+  const unified = /\[([QA])\|([^\]|]+?)(?:\|([^\]]+?))?\]/g;
   let m: RegExpExecArray | null;
-  const qp = /\[Q\|([^\]]+)\]/g;
-  const ap = /\[A\|([^\]|]+)\|([^\]]+)\]/g;
-  // 両方を位置順にマージ
-  type RL = { index: number; line: { type: "Q"|"A"; speaker?: string; text: string } };
-  const all: RL[] = [];
-  while ((m = qp.exec(s)) !== null) all.push({ index: m.index, line: { type: "Q", text: m[1].trim() } });
-  while ((m = ap.exec(s)) !== null) all.push({ index: m.index, line: { type: "A", speaker: m[1].trim(), text: m[2].trim() } });
-  all.sort((a, b) => a.index - b.index);
-  return all.map(x => x.line);
+  while ((m = unified.exec(s)) !== null) {
+    if (m[1] === "Q") {
+      r.push({ type: "Q", text: m[2].trim() });
+    } else {
+      // [A|話者|テキスト] または [A|テキスト]（話者省略）
+      if (m[3] !== undefined) {
+        r.push({ type: "A", speaker: m[2].trim(), text: m[3].trim() });
+      } else {
+        r.push({ type: "A", text: m[2].trim() });
+      }
+    }
+  }
+  return r;
+}
+
+export function parseTimelineEvents(s: string) {
+  const r: Array<{ time: string; text: string }> = [];
+  let m: RegExpExecArray | null;
+  const p = /\[EVENT\|([^\]|]+)\|([^\]]+)\]/g;
+  while ((m = p.exec(s)) !== null) r.push({ time: m[1].trim(), text: m[2].trim() });
+  return r;
+}
+
+export function parseTableRows(s: string) {
+  const r: Array<string[]> = [];
+  let m: RegExpExecArray | null;
+  const p = /\[ROW\]([^\[]*(?:\[(?!ROW\]|\/?TABLE\])[^\]]*\][^\[]*)*)/g;
+  while ((m = p.exec(s)) !== null) {
+    const cells = m[1].split("|").map(c => c.trim()).filter((_, i, a) => i < a.length);
+    r.push(cells);
+  }
+  return r;
 }
