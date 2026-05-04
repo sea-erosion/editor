@@ -23,7 +23,7 @@ function stripNml(content: string): string {
     .replace(/\[LOG\|([^|]+)(?:\|[^\]]*)?\]([\s\S]*?)\[\/LOG\]/g, "<section><h3>$1</h3>$2</section>")
     .replace(/\[INTERVIEW\|([^\]]+)\]([\s\S]*?)\[\/INTERVIEW\]/g, "<section><h3>$1</h3>$2</section>")
     .replace(/\[Q\|([^\]]+)\]/g, "<p><strong>Q: $1</strong></p>")
-    .replace(/\[A\|[^|]+\|([^\]]+)\]/g, "<p>A: $1</p>")
+    .replace(/\[A\|(?:[^\]|]+\|)?([^\]]+)\]/g, "<p>A: $1</p>")
     .replace(/\[GLOSSARY\]([\s\S]*?)\[\/GLOSSARY\]/g, "<dl>$1</dl>")
     .replace(/\[TERM\|([^|]+)\|([^\]]+)\]/g, "<dt>$1</dt><dd>$2</dd>")
     .replace(/\[DIALOG\]([\s\S]*?)\[\/DIALOG\]/g, "<div class=\"dialog\">$1</div>")
