@@ -1,5 +1,6 @@
-// 編集日時: 2026-04-29
+// 編集日時: 2026-05-03
 "use client";
+import { adminFetch } from "@/lib/admin-fetch";
 import { NovelRenderer } from "@/components/novel/NovelRenderer";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -15,7 +16,7 @@ function PreviewContent() {
   useEffect(() => {
     if (!chapterId) return;
     setLoading(true);
-    fetch(`/api/admin/chapters/${chapterId}`)
+    adminFetch(`/api/admin/chapters/${chapterId}`)
       .then(r => r.json())
       .then(d => { setContent(d.content ?? ""); setTitle(d.title ?? ""); })
       .finally(() => setLoading(false));
