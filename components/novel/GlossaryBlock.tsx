@@ -1,4 +1,4 @@
-// 編集日時: 2026-04-28
+// 編集日時: 2026-05-03
 "use client";
 import { useState } from "react";
 
@@ -29,13 +29,29 @@ export function GlossaryBlock({ terms }: GlossaryBlockProps) {
               <span className="font-mono text-sm text-gray-200">
                 <span className="text-gray-600 mr-2">・</span>{t.term}
               </span>
-              <span className={`text-gray-600 text-xs font-mono transition-transform ${open === i ? "rotate-90" : ""}`}>▶</span>
+              <span
+                className="text-gray-600 text-xs font-mono"
+                style={{
+                  display: "inline-block",
+                  transform: open === i ? "rotate(90deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s ease",
+                }}
+              >
+                ▶
+              </span>
             </button>
-            {open === i && (
+            {/* max-heightでアコーディオンアニメ */}
+            <div
+              style={{
+                maxHeight: open === i ? "300px" : "0px",
+                overflow: "hidden",
+                transition: "max-height 0.25s ease",
+              }}
+            >
               <div className="px-8 pb-3 text-sm text-gray-400 leading-relaxed border-t border-gray-800/30 pt-2">
                 {t.desc}
               </div>
-            )}
+            </div>
           </div>
         ))}
       </div>
