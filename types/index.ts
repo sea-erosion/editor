@@ -1,4 +1,4 @@
-// 編集日時: 2026-04-29
+// 編集日時: 2026-05-03
 export type EntityType = "anomaly" | "module" | "incident" | "facility" | "personnel";
 
 export interface Anomaly { id: string; name: string; classification: string; containmentClass?: string|null; riskClass?: string|null; disruptionClass?: string|null; description: string; containmentProcedures?: string|null; addendum?: string|null; tags?: string[]|null; imageUrl?: string|null; createdAt?: number|null; updatedAt?: number|null; }
@@ -30,7 +30,19 @@ export type TokenType =
   | "image_placeholder"
   | "counter"
   | "pov"
-  | "timestamp";
+  | "timestamp"
+  | "report"
+  | "timeline"
+  | "classified"
+  | "table"
+  | "transmission"
+  | "font"
+  | "color"
+  | "blink"
+  | "spoiler"
+  | "mark"
+  | "shake"
+  | "link";
 
 export interface Token {
   type: TokenType;
