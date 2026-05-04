@@ -1,4 +1,4 @@
-// 編集日時: 2026-04-29
+// 編集日時: 2026-05-03
 
 type Rule = { pattern: RegExp; cls: string };
 
@@ -38,6 +38,14 @@ const RULES: Rule[] = [
   { pattern: /\[POV\|[^\]]+\]/g,                                 cls: "hl-pov"       },
   { pattern: /\[SYS\|[^\]]+\]/g,                                 cls: "hl-sys"       },
   { pattern: /\[HR[^\]]*\]/g,                                    cls: "hl-hr"        },
+  // 新規ブロック (2026-05-03)
+  { pattern: /\[REPORT[^\]]*\]|\[\/REPORT\]/g,                  cls: "hl-report"       },
+  { pattern: /\[TIMELINE\]|\[\/TIMELINE\]/g,                     cls: "hl-timeline"     },
+  { pattern: /\[EVENT\|[^\]]+\]/g,                               cls: "hl-timeline"     },
+  { pattern: /\[CLASSIFIED[^\]]*\]|\[\/CLASSIFIED\]/g,          cls: "hl-classified"   },
+  { pattern: /\[TABLE\]|\[\/TABLE\]/g,                           cls: "hl-table"        },
+  { pattern: /\[ROW\][^\[]*/g,                                    cls: "hl-table"        },
+  { pattern: /\[TRANSMISSION[^\]]*\]|\[\/TRANSMISSION\]/g,      cls: "hl-transmission" },
   // インライン
   { pattern: /\[RUBY\|[^\]]+\]/g,                                cls: "hl-ruby"      },
   { pattern: /\[DOT\|[^\]]+\]/g,                                 cls: "hl-dot"       },
@@ -46,6 +54,13 @@ const RULES: Rule[] = [
   { pattern: /\[CORRUPT[^\]]*\]/g,                               cls: "hl-corrupt"   },
   { pattern: /\[NOTE\|\d+\]/g,                                   cls: "hl-note-ref"  },
   { pattern: /\[TIME\|[^\]]+\]/g,                                cls: "hl-timestamp" },
+  { pattern: /\[FONT\|[^\]]+\]/g,                                 cls: "hl-font"      },
+  { pattern: /\[COLOR\|[^\]]+\]/g,                                cls: "hl-color"     },
+  { pattern: /\[BLINK\|[^\]]+\]/g,                                cls: "hl-blink"     },
+  { pattern: /\[SPOILER\|[^\]]+\]/g,                              cls: "hl-spoiler"   },
+  { pattern: /\[MARK\|[^\]]+\]/g,                                 cls: "hl-mark"      },
+  { pattern: /\[SHAKE\|[^\]]+\]/g,                                cls: "hl-shake"     },
+  { pattern: /\[LINK\|[^\]]+\]/g,                                 cls: "hl-link"      },
 ];
 
 function escapeHtml(s: string): string {
