@@ -1,6 +1,6 @@
 import { db } from "@/db/client";
 import { chapters, novels } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 // GET /api/admin/novels — list all novels with chapter count
@@ -9,8 +9,9 @@ export async function GET() {
     const all = await db.select().from(novels).orderBy(novels.createdAt);
     const withCounts = await Promise.all(
       all.map(async (n) => {
-        const chs = await db.select().from(chapters).where(eq(chapters.novelId, n.id));
-        return { ...n, chapterCount: chs.length };
+        const allChs = await db.select().from(chapters).where(eq(chapters.novelId, n.id));
+        const publishedChs = allChs.filter(c => c.status === "published");
+        return { ...n, chapterCount: publishedChs.length, totalChapterCount: allChs.length };
       })
     );
     return NextResponse.json(withCounts);
