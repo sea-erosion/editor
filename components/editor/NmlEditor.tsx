@@ -205,7 +205,7 @@ export function NmlEditor({ value, onChange, placeholder }: NmlEditorProps) {
   useEffect(() => {
     if (!showEntityPalette) return;
     setEntityLoading(true);
-    const params = new URLSearchParams({ type: entityType, lite: "1" });
+    const params = new URLSearchParams({ type: entityType });
     if (entitySearch) params.set("q", entitySearch);
     fetch(`/api/admin/entities?${params}`)
       .then((r) => r.json())
@@ -253,6 +253,8 @@ export function NmlEditor({ value, onChange, placeholder }: NmlEditorProps) {
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Tab") {
+        // Shift+Tab はフォーカス移動を許可（アクセシビリティ）
+        if (e.shiftKey) return;
         e.preventDefault();
         insertSnippet(() => ({ text: "  ", cursorOffset: 0 }));
         return;
@@ -260,6 +262,8 @@ export function NmlEditor({ value, onChange, placeholder }: NmlEditorProps) {
       if (e.key === "Escape") {
         setShowEntityPalette(false);
         setShowReference(false);
+        // Escape でテキストエリアのフォーカスを解除できるようにする
+        (e.target as HTMLTextAreaElement).blur();
       }
     },
     [insertSnippet]
