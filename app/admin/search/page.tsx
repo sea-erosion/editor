@@ -1,10 +1,10 @@
-// 編集日時: 2026-05-03
+// 編集日時: 2026-05-05
 "use client";
 import { adminFetch } from "@/lib/admin-fetch";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 
-interface ChapterResult { id: string; title: string; chapterNumber: number; novelTitle: string; novelSlug: string; snippet: string; matchInTitle: boolean; }
+interface ChapterResult { id: string; title: string; chapterNumber: number; novelId: string; novelTitle: string; novelSlug: string; snippet: string; matchInTitle: boolean; }
 interface EntityResult  { id: string; name: string; type: string; }
 
 const TYPE_COLOR: Record<string, string> = {
