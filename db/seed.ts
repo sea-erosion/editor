@@ -1,4 +1,4 @@
-// 編集日時: 2026-04-29
+// 編集日時: 2026-05-05
 /**
  * seed.ts
  * - CLIで直接実行: npx tsx db/seed.ts
@@ -119,7 +119,7 @@ export async function runSeed(dbUrl?: string, authToken?: string): Promise<void>
 
   // 既にnovelsが存在する場合はスキップ
   const existing = await client.execute(`SELECT COUNT(*) as cnt FROM novels`);
-  const cnt = (existing.rows[0] as { cnt: number }).cnt;
+  const cnt = (existing.rows[0] as unknown as { cnt: number }).cnt;
   if (Number(cnt) > 0) {
     console.log("⏭ Seed skipped: data already exists.");
     await client.close();
