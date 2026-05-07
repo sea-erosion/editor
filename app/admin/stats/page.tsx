@@ -1,4 +1,4 @@
-// 編集日時: 2026-05-03
+// 編集日時: 2026-05-05
 "use client";
 import { adminFetch } from "@/lib/admin-fetch";
 import Link from "next/link";
@@ -10,9 +10,15 @@ interface NovelStat {
   chapterHistory: Array<{ num: number; chars: number; title: string }>;
   updatedAt: number | null;
 }
+interface RecentComment {
+  id: string; novelId: string; chapterId: string | null;
+  emoji: string; comment: string | null;
+  createdAt: number | null; novelTitle: string; chapterTitle: string | null;
+}
 interface Stats {
   novels: NovelStat[]; totalNovels: number; totalChapters: number; totalChars: number;
   entities: Record<string, number>;
+  reactions: { total: number; emojiCounts: Record<string, number>; recentComments: RecentComment[] };
 }
 
 function fmt(n: number) { return n.toLocaleString(); }
@@ -64,6 +70,53 @@ export default function StatsPage() {
           </div>
         ))}
       </div>
+
+      {/* リアクション集計 (2026-05-05) */}
+      {stats.reactions && (
+        <div className="border border-gray-800 rounded-lg p-4 mb-8 bg-gray-900/20">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-mono text-gray-600 tracking-widest">◈ REACTIONS</p>
+            <span className="text-[10px] font-mono text-gray-600">合計 {stats.reactions.total} 件</span>
+          </div>
+          {/* 絵文字カウント */}
+          {Object.keys(stats.reactions.emojiCounts).length > 0 ? (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {Object.entries(stats.reactions.emojiCounts)
+                .filter(([, n]) => n > 0)
+                .sort(([, a], [, b]) => b - a)
+                .map(([emoji, count]) => (
+                  <span key={emoji} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-700/60 bg-gray-900/40 text-sm font-mono text-gray-300">
+                    {emoji} <span className="text-gray-500 text-xs">{count}</span>
+                  </span>
+                ))}
+            </div>
+          ) : (
+            <p className="text-xs font-mono text-gray-700 mb-4">まだリアクションはありません</p>
+          )}
+
+          {/* 感想コメント一覧 */}
+          {stats.reactions.recentComments.length > 0 && (
+            <div>
+              <p className="text-[10px] font-mono text-gray-700 tracking-widest mb-2">最新の感想</p>
+              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                {stats.reactions.recentComments.map((r) => (
+                  <div key={r.id} className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg border border-gray-800/60 bg-gray-900/30">
+                    <span className="text-base flex-shrink-0">{r.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-400 leading-relaxed">{r.comment}</p>
+                      <p className="text-[10px] font-mono text-gray-700 mt-1">
+                        {r.novelTitle}
+                        {r.chapterTitle && <span className="ml-1">/ {r.chapterTitle}</span>}
+                        {r.createdAt && <span className="ml-2">{relDate(r.createdAt)}</span>}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* エンティティ内訳 */}
       <div className="border border-gray-800 rounded-lg p-4 mb-8 bg-gray-900/20">
