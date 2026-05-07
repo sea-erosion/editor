@@ -1,4 +1,4 @@
-// 編集日時: 2026-05-03 (fix: ブロック content 内のインラインタグも再帰パース / add: REPORT, TIMELINE, CLASSIFIED, TABLE, TRANSMISSION, FONT)
+// 編集日時: 2026-05-03 (fix: ブロック content 内のインラインタグも再帰パース / add: REPORT, TIMELINE, CLASSIFIED, TABLE, TRANSMISSION, FONT) / 2026-05-07 (fix: BUG-4 parseTableRows フィルター修正)
 import { Token } from "@/types";
 
 /**
@@ -243,7 +243,7 @@ export function parseTableRows(s: string) {
   let m: RegExpExecArray | null;
   const p = /\[ROW\]([^\[]*(?:\[(?!ROW\]|\/?TABLE\])[^\]]*\][^\[]*)*)/g;
   while ((m = p.exec(s)) !== null) {
-    const cells = m[1].split("|").map(c => c.trim()).filter((_, i, a) => i < a.length);
+    const cells = m[1].split("|").map(c => c.trim()).filter(Boolean);
     r.push(cells);
   }
   return r;
