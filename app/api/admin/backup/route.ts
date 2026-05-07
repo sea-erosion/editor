@@ -1,17 +1,18 @@
-// 編集日時: 2026-04-29
+// 編集日時: 2026-04-29 (initial) / 2026-05-07 (fix: reactionsをバックアップ対象に追加)
 import { db } from "@/db/client";
-import { anomalies, chapters, facilities, incidents, modules, novels, personnel } from "@/db/schema";
+import { anomalies, chapters, facilities, incidents, modules, novels, personnel, reactions } from "@/db/schema";
 import { NextRequest, NextResponse } from "next/server";
 
-const TABLES = { anomalies, modules, incidents, facilities, personnel, novels, chapters } as const;
+const TABLES = { anomalies, modules, incidents, facilities, personnel, novels, chapters, reactions } as const;
 type TableKey = keyof typeof TABLES;
-const ORDER: TableKey[]  = ["anomalies","modules","incidents","facilities","personnel","novels","chapters"];
+// reactions は novels・chapters より後に insert（FK制約のため）
+const ORDER: TableKey[]  = ["anomalies","modules","incidents","facilities","personnel","novels","chapters","reactions"];
 const REVERSE: TableKey[] = [...ORDER].reverse();
 
 // ── エクスポート ─────────────────────────────────────────────────────
 export async function GET() {
   try {
-    const [ano, mod, inc, fac, per, nov, cha] = await Promise.all([
+    const [ano, mod, inc, fac, per, nov, cha, rxn] = await Promise.all([
       db.select().from(anomalies),
       db.select().from(modules),
       db.select().from(incidents),
@@ -19,12 +20,13 @@ export async function GET() {
       db.select().from(personnel),
       db.select().from(novels),
       db.select().from(chapters),
+      db.select().from(reactions),
     ]);
     const backup = {
       version: "1.0",
       exportedAt: new Date().toISOString(),
-      counts: { anomalies: ano.length, modules: mod.length, incidents: inc.length, facilities: fac.length, personnel: per.length, novels: nov.length, chapters: cha.length },
-      data: { anomalies: ano, modules: mod, incidents: inc, facilities: fac, personnel: per, novels: nov, chapters: cha },
+      counts: { anomalies: ano.length, modules: mod.length, incidents: inc.length, facilities: fac.length, personnel: per.length, novels: nov.length, chapters: cha.length, reactions: rxn.length },
+      data: { anomalies: ano, modules: mod, incidents: inc, facilities: fac, personnel: per, novels: nov, chapters: cha, reactions: rxn },
     };
     const filename = `scp-archive-backup-${new Date().toISOString().slice(0,10)}.json`;
     return new NextResponse(JSON.stringify(backup, null, 2), {
