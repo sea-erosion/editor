@@ -1,7 +1,11 @@
+// 編集日時: 2026-05-07 (fix P-3: スラッグフォーマットバリデーション追加)
 import { db } from "@/db/client";
 import { chapters, novels } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+
+/** URL安全なスラッグ: 英小文字・数字・ハイフンのみ、先頭と末尾はハイフン不可 */
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 // GET /api/admin/novels — list all novels with chapter count
 export async function GET() {
@@ -28,6 +32,12 @@ export async function POST(req: NextRequest) {
     const { title, slug, author, summary, classification, clearanceRequired } = body;
     if (!title || !slug || !author) {
       return NextResponse.json({ error: "title, slug, author are required" }, { status: 400 });
+    }
+    if (!SLUG_RE.test(slug)) {
+      return NextResponse.json(
+        { error: "スラッグは英小文字・数字・ハイフンのみ使用できます（例: my-novel-01）" },
+        { status: 400 }
+      );
     }
     const id = `novel-${Date.now()}`;
     await db.insert(novels).values({
