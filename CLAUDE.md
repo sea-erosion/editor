@@ -69,13 +69,30 @@ GET        /api/admin/entities/usages?entityId={id}&type={type}
 | `runSeed` 失敗でサイレントクラッシュ | `try-catch` でラップしてエラーログ出力・起動継続 |
 | バックアップインポート時の timestamp 型不一致 | ISO文字列 → UNIX epoch（秒）変換を追加 |
 
+| `/admin/**` ページに認証ガードなし（LoginGate未実装） | `middleware.ts` を拡張し Cookie でサーバーサイド保護・`admin-fetch.ts` で 401 時自動リダイレクト |
+| `NEXT_PUBLIC_ADMIN_TOKEN` がブラウザに公開される | 環境変数フォールバックを削除・localStorage + Cookie 方式に統一 |
+| `/api/reactions` POST にレート制限なし | IP ベースのインメモリレート制限を追加（60秒/10件） |
+
+---
+
+## 認証フロー（2026-05-07 更新）
+
+### ページ保護の仕組み
+
+1. ログイン画面 (`/admin/login`) でトークンを入力
+2. `saveAdminToken()` が localStorage + `admin_session` Cookie を設定
+3. `middleware.ts` が `/admin/**` アクセス時に Cookie を検証し、不一致なら `/admin/login?from=...` へリダイレクト
+4. `adminFetch()` が API リクエストに `Authorization: Bearer` を付与し、401 受信時はクリアして自動リダイレクト
+
+### セキュリティ上の注意
+
+- `NEXT_PUBLIC_ADMIN_TOKEN` は**使用禁止**（バンドルに埋め込まれる）
+- Cookie は `SameSite=Strict` + HTTPS なら `Secure` 付き
+- 本番環境では管理画面を IP 制限 / VPN 背後に配置することを強く推奨
+
 ---
 
 ## 未完了タスク
-
-### 最優先: 管理API認証の実装
-
-`middleware.ts` を作成して `/api/admin/**` を保護する。詳細は `HANDOVER.md` 参照。
 
 ### 次のタスク: NML 記法の追加
 
