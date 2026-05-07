@@ -1,5 +1,7 @@
+// 編集日時: 2026-05-07 (fix: BUG-1 usages fetch → adminFetch)
 "use client";
 
+import { adminFetch } from "@/lib/admin-fetch";
 import { AnyEntity, Anomaly, EntityType, Facility, Incident, Module, Personnel } from "@/types";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -279,7 +281,7 @@ function UsageFooter({ entityId, borderCls, detailPath, onClose, pushFn }: {
 
   const loadUsages = async () => {
     if (loaded) { setOpen(v => !v); return; }
-    const res  = await fetch(`/api/admin/entities/usages?id=${encodeURIComponent(entityId)}`);
+    const res  = await adminFetch(`/api/admin/entities/usages?id=${encodeURIComponent(entityId)}`);
     const data = await res.json();
     setUsages(Array.isArray(data) ? data : []);
     setLoaded(true); setOpen(true);
