@@ -1,6 +1,7 @@
-// 編集日時: 2026-04-28
+// 編集日時: 2026-04-28 / 2026-05-07 (fix: エンティティ検索をadminFetchに変更)
 "use client";
 
+import { adminFetch } from "@/lib/admin-fetch";
 import { buildHighlightedHTML } from "@/lib/nml-highlight";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -207,7 +208,7 @@ export function NmlEditor({ value, onChange, placeholder }: NmlEditorProps) {
     setEntityLoading(true);
     const params = new URLSearchParams({ type: entityType });
     if (entitySearch) params.set("q", entitySearch);
-    fetch(`/api/admin/entities?${params}`)
+    adminFetch(`/api/admin/entities?${params}`)
       .then((r) => r.json())
       .then((data) => setEntities(Array.isArray(data) ? data : []))
       .catch(() => setEntities([]))
