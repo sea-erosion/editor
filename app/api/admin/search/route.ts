@@ -1,13 +1,21 @@
-// 編集日時: 2026-04-29
+// 編集日時: 2026-04-29 (initial) / 2026-05-07 (fix P-2: 検索クエリ長の上限追加)
 import { db } from "@/db/client";
 import { anomalies, chapters, facilities, incidents, modules, novels, personnel } from "@/db/schema";
 import { like, or } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
+const MAX_Q_LEN = 100;
+
 // GET /api/admin/search?q=キーワード
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
   if (q.length < 1) return NextResponse.json({ chapters: [], entities: [] });
+  if (q.length > MAX_Q_LEN) {
+    return NextResponse.json(
+      { error: `検索キーワードは ${MAX_Q_LEN} 文字以内にしてください` },
+      { status: 400 }
+    );
+  }
 
   const pat = `%${q}%`;
   try {
@@ -27,7 +35,6 @@ export async function GET(req: NextRequest) {
 
     const chapterResults = chs.map((ch) => {
       const novel = novelMap[ch.novelId];
-      // マッチ箇所のスニペット生成
       const lower = ch.content.toLowerCase();
       const idx = lower.indexOf(q.toLowerCase());
       const snippet = idx >= 0
