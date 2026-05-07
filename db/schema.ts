@@ -86,6 +86,17 @@ export const novels = sqliteTable("novels", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).default(sql`(unixepoch())`),
 });
 
+// ===== REACTIONS (2026-05-05) =====
+// 章ごとの絵文字リアクション＋テキスト感想
+export const reactions = sqliteTable("reactions", {
+  id: text("id").primaryKey(),
+  novelId: text("novel_id").notNull().references(() => novels.id, { onDelete: "cascade" }),
+  chapterId: text("chapter_id").references(() => chapters.id, { onDelete: "cascade" }),
+  emoji: text("emoji").notNull(),         // e.g. "❤️"
+  comment: text("comment"),               // 任意テキスト感想（最大200字）
+  createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(unixepoch())`),
+});
+
 export const chapters = sqliteTable("chapters", {
   id: text("id").primaryKey(),
   novelId: text("novel_id").notNull().references(() => novels.id, { onDelete: "cascade" }),
