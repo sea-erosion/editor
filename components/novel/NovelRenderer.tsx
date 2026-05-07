@@ -1,4 +1,4 @@
-// 編集日時: 2026-05-03 (fix: インライントークンを段落内に埋め込む / add: REPORT, TIMELINE, CLASSIFIED, TABLE, TRANSMISSION, FONT, COLOR, BLINK, SPOILER, MARK, SHAKE, LINK)
+// 編集日時: 2026-05-03 (fix: インライントークンを段落内に埋め込む / add: REPORT, TIMELINE, CLASSIFIED, TABLE, TRANSMISSION, FONT, COLOR, BLINK, SPOILER, MARK, SHAKE, LINK) / 2026-05-07 (fix: BUG-7 未使用のBLOCK_INLINE_TYPES削除)
 "use client";
 
 import { CallBlock }          from "@/components/novel/CallBlock";
@@ -119,14 +119,15 @@ const INLINE_TYPES = new Set([
   ...Object.keys(ENTITY_TOKEN_TYPES),
 ]);
 
-const BLOCK_INLINE_TYPES = new Set(["timestamp"]); // ブロックとして独立させないインライン
-
 export function NovelRenderer({ content }: NovelRendererProps) {
   const tokens = useMemo(() => parseNovelMarkup(content), [content]);
   const elements: React.ReactNode[] = [];
   // 段落に蓄積するセグメント（文字列 or インライン React ノード）
   let paraSegments: ParagraphChild[] = [];
   let key = 0;
+  // 連続する sys トークンに対して index を払い出すカウンター (2026-05-05)
+  let sysGroupIdx = 0;
+  let lastTokenWasSys = false;
 
   const flushPara = () => {
     if (paraSegments.length === 0) return;
@@ -154,6 +155,8 @@ export function NovelRenderer({ content }: NovelRendererProps) {
 
     // ブロックトークン → まず段落をフラッシュしてからブロックを追加
     flushPara();
+    // sys 連続グループの追跡リセット（sys 以外が来たらグループを切る）
+    if (token.type !== "sys") lastTokenWasSys = false;
 
     switch (token.type) {
       case "header":
@@ -167,7 +170,12 @@ export function NovelRenderer({ content }: NovelRendererProps) {
       case "chat":     elements.push(<ChatBlock key={key++} messages={parseChatMessages(token.content)}/>); break;
       case "dialog":   elements.push(<DialogBlock key={key++} lines={parseDialogLines(token.content)}/>); break;
       case "glossary": elements.push(<GlossaryBlock key={key++} terms={parseGlossaryTerms(token.content)}/>); break;
-      case "sys":      elements.push(<SysLogLine key={key++} text={token.content} translation={token.label||undefined}/>); break;
+      case "sys": {
+        if (!lastTokenWasSys) sysGroupIdx = 0;
+        elements.push(<SysLogLine key={key++} text={token.content} translation={token.label||undefined} index={sysGroupIdx++}/>);
+        lastTokenWasSys = true;
+        break;
+      }
       case "hr":       elements.push(<HrDivider key={key++} style={token.content}/>); break;
       case "log":      elements.push(<LogBlock key={key++} title={token.label??""} date={token.meta?.date} content={token.content}/>); break;
       case "call":     elements.push(<CallBlock key={key++} header={token.label??""} lines={parseVoiceLines(token.content)}/>); break;
