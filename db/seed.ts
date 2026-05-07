@@ -1,4 +1,4 @@
-// 編集日時: 2026-05-05
+// 編集日時: 2026-05-05 (海蝕部データ追加: 2026-05-05)
 /**
  * seed.ts
  * - CLIで直接実行: npx tsx db/seed.ts
@@ -102,6 +102,18 @@ async function initializeDb(client: ReturnType<typeof createClient>) {
     status TEXT NOT NULL DEFAULT 'published',
     created_at INTEGER DEFAULT (unixepoch()),
     FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE
+  )`);
+
+  // reactions テーブル (2026-05-05)
+  await client.execute(`CREATE TABLE IF NOT EXISTS reactions (
+    id TEXT PRIMARY KEY,
+    novel_id TEXT NOT NULL,
+    chapter_id TEXT,
+    emoji TEXT NOT NULL,
+    comment TEXT,
+    created_at INTEGER DEFAULT (unixepoch()),
+    FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE,
+    FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
   )`);
 
   console.log("Tables created.");
@@ -460,6 +472,225 @@ export async function runSeed(dbUrl?: string, authToken?: string): Promise<void>
   });
 
   console.log("✅ Seed data inserted successfully.");
+
+  // ── 海蝕現象収束機関 データ ──────────────────────────────────────────
+
+  // Facilities: 九重高校・海蝕部部室
+  await client.execute({
+    sql: `INSERT INTO facilities VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch())`,
+    args: [
+      "SITE-KKJ",
+      "九重高校",
+      "Research",
+      "大分県九重地区（山間部）",
+      "Active",
+      "海蝕現象収束機関九重支部が設置されている全寮制の共学高校。全校生徒数約400人規模の小さな高校。山に囲まれており、長期休暇以外は帰省不可。敷地は山3つ分に及ぶ広大なもので、多数の部活・同好会が存在する。100周年記念事業により校舎と寮が新築されており、施設は良好。実は世界で最初に海蝕現象が観測された地であり、現在の海蝕現象収束機関は海蝕部OBが設立した。",
+      "不明",
+      400,
+      JSON.stringify([]),
+    ],
+  });
+
+  await client.execute({
+    sql: `INSERT INTO facilities VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch())`,
+    args: [
+      "ROOM-KAISYOKU",
+      "海蝕部部室",
+      "Containment",
+      "九重高校内（正確な位置は変動）",
+      "Active",
+      "海蝕部（海蝕現象収束機関九重支部）の活動拠点。部室そのものが海蝕実体であり、内部空間が歪んでいる。内部で起きた現象は外部に漏れないという特性を持つ。あまりに広大で全容を把握している者はなく、空間の一部は「海」にはみ出しているとの噂もある。",
+      "不明",
+      null,
+      JSON.stringify([]),
+    ],
+  });
+
+  // Anomalies: 海蝕現象関連
+  await client.execute({
+    sql: `INSERT INTO anomalies VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())`,
+    args: [
+      "KAISYOKU-ROOM-001",
+      "海蝕部部室",
+      "Euclid",
+      "Safe",
+      null,
+      null,
+      "海蝕部が拠点とする部室そのものが海蝕実体。内部空間が物理法則に反して歪んでおり、外観からは推測できない広さを持つ。内部で発生した事象は外部に漏れない遮蔽特性がある。全容は現在も不明で、空間の一部が「海」と呼ばれる異次元にはみ出している可能性が指摘されている。",
+      "現状維持。海蝕部の活動拠点として継続使用。内部の未踏エリアへの単独立ち入りは禁止。",
+      "初代海蝕部員により発見・活用が開始された。以降、代々の海蝕部員が活動拠点として使用している。",
+      JSON.stringify(["facility", "self-contained", "spatial-anomaly"]),
+      null,
+    ],
+  });
+
+  await client.execute({
+    sql: `INSERT INTO anomalies VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())`,
+    args: [
+      "KAISYOKU-DIARY-001",
+      "日記（記録媒体型海蝕実体）",
+      "Safe",
+      "Safe",
+      null,
+      null,
+      "一見普通の日記帳に見える海蝕実体。持ち主の人格・記憶をトレースして模擬人格を生成する機能を持つ。緊急モードでの起動時は個人情報プロテクト機能が発動し、持ち主に関する情報が文字化け・不可読化される。起動した模擬人格は読者と会話が可能。",
+      "通常通り管理・保管。緊急モードでの起動記録を保持。模擬人格との会話ログを記録すること。",
+      "現在の所持者については個人情報プロテクト機能により詳細不明。模擬人格は持ち主本人の生死・状況を把握していない。",
+      JSON.stringify(["artifact", "personality-trace", "memory"]),
+      null,
+    ],
+  });
+
+  // Modules: 日誌・組織体制
+  await client.execute({
+    sql: `INSERT INTO modules VALUES (?, ?, ?, ?, ?, ?, ?, unixepoch())`,
+    args: [
+      "MOD-KKJ-001",
+      "回収部（仮）日誌 ／ 一から学べる海蝕現象！これさえ読めば大丈夫！",
+      "Protocol",
+      "Active",
+      "数世代前の先輩部員が執筆した海蝕現象入門ドキュメント。自身が何も知らない状態で海蝕部に入った経験から、後輩のために一から学べるよう書き上げたもの。所々に愚痴・悪口・冗談が混在している。「回収部（仮）日誌」は一般生徒向けの偽名称。正式名称は「一から学べる海蝕現象！これさえ読めば大丈夫！」。",
+      null,
+      JSON.stringify([]),
+    ],
+  });
+
+  await client.execute({
+    sql: `INSERT INTO modules VALUES (?, ?, ?, ?, ?, ?, ?, unixepoch())`,
+    args: [
+      "MOD-KKJ-002",
+      "海蝕現象収束機関 組織体制",
+      "System",
+      "Active",
+      "大分県内で発生する海蝕現象に対処する組織の体制。大きく5つの班に分かれる。収束員班（エグゼクター）：実際の収束活動を担当。通信員班（オペレーター）：収束員への通信支援。支援員班（サポーター）：円滑な収束活動のための後方支援。研究員班（リサーチャー）：海蝕現象の研究・利用。外交員班（ネゴシエーター）：海に関する全般的な外交業務。組織内でもネゴシエーターの存在はほとんど知られていない。",
+      JSON.stringify({
+        班構成: {
+          "収束員班(エグゼクター)": "実際の収束活動を行う",
+          "通信員班(オペレーター)": "収束員を支援する通信担当",
+          "支援員班(サポーター)": "収束活動の円滑化を支援",
+          "研究員班(リサーチャー)": "海蝕現象の研究・利用",
+          "外交員班(ネゴシエーター)": "海関連の外交業務。組織内でも極秘",
+        },
+      }),
+      JSON.stringify([]),
+    ],
+  });
+
+  // Personnel: 海蝕部員（「僕」は個人情報プロテクトのため匿名）
+  await client.execute({
+    sql: `INSERT INTO personnel VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch())`,
+    args: [
+      "PRSN-KKJ-001",
+      "████",
+      "日記の持ち主",
+      "収束員",
+      1,
+      "Unknown",
+      "九重高校の海蝕部員。日記型海蝕実体（KAISYOKU-DIARY-001）の持ち主。個人情報プロテクト機能により氏名・学年・所属その他の個人情報は閲覧不可。模擬人格としてはデバイス内に存在しており、読者と対話が可能。自身の生死や現状については本人も把握していない模様。",
+      JSON.stringify(["不明"]),
+      "ROOM-KAISYOKU",
+      JSON.stringify(["KAISYOKU-DIARY-001"]),
+    ],
+  });
+
+  // Novel: 回収部（仮）日誌 小説
+  await client.execute({
+    sql: `INSERT INTO novels VALUES (?, ?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())`,
+    args: [
+      "novel-kkj-001",
+      "回収部（仮）日誌",
+      "kaisyoku-diary",
+      "████（海蝕部員）",
+      "九重高校に実在する（らしい）「海蝕部」の部員が書いた日記。日記型海蝕実体として起動すると、持ち主の模擬人格が現れ読者と対話する。個人情報プロテクト機能により持ち主の素性は不明。これを読んでいるあなたも、もしかしたら九重高校の生徒かもしれない。",
+      "Log",
+      0,
+      "published",
+    ],
+  });
+
+  // Chapter 0: エピローグ兼プロローグ
+  const chapterPrologueContent = `[SYS|The device has booted.|デバイスが起動しました]
+[SYS|Boot in emergency mode confirmed.|緊急モードで起動中]
+[SYS|Personal information protection feature is enabled.|個人情報プロテクトを適用中]
+[SYS|Diagnostic system is running.|診断プログラムを実行中]
+[SYS|Generating personality based on diary records.|日記内の記述を元に人格生成中]
+
+[WARN|danger|エラー]一部のデータが破損しています。データの整合性を検証できません。[/WARN]
+
+[SYS|System restored except for some components.|一部を除き、システムが復旧しました]
+
+[HR]
+
+[CHAT]
+[MSG|left|████|やあ、この[RUBY|日記|デバイス]を誰かが読んでいるということは……]
+[MSG|left|████|多分、僕が死んだか、それとも僕が死ぬ以上の何かが起きたということだ。]
+[MSG|right|読者|おーい]
+[MSG|left|████|まさか……彼女が死んだということはないよな？]
+[MSG|left|████|もしかしたら、あの時言いかけたことって……]
+[MSG|left|████|いや記録媒体の身で現実世界の未来を案じても仕方がない……]
+[MSG|right|読者|おーいってば！]
+[MSG|left|████|ああ、でも、どうすれば……]
+[MSG|right|読者|おーいってば！]
+[MSG|left|████|あっ、ごめん、君のこと無視していて。]
+[MSG|left|████|ひとまず、この日記を見つけてくれてありがとう！]
+[/CHAT]
+
+[GLITCH]████　████。████高校████年生[/GLITCH]
+
+[CHAT]
+[MSG|left|████|もしかしてこの日記を拾った君も[FACILITY|SITE-KKJ|九重高校]の生徒かな？そうだったら話は早いんだけど……]
+[MSG|right|読者|文字化けがひどい！]
+[MSG|left|████|え、文字化けがひどいって？]
+[MSG|left|████|多分、この日記にかかっている、個人情報プロテクト機能のせいだろうな……]
+[MSG|left|████|きみ、この日記を緊急モードで起動しただろう？だからプロテクトが掛かったんだと思うよ]
+[MSG|left|████|まあ、名前がわからなくても、会話はできるし……まあいいや、話を戻そう]
+[MSG|left|████|僕はその高校である部活に入っていてね……]
+[/CHAT]
+
+[GLITCH]████████████部　通称　████部[/GLITCH]
+
+[CHAT]
+[MSG|right|読者|うわっ、また文字化け！]
+[MSG|left|████|え、これもかい？]
+[MSG|left|████|もしかして…… ████部、████さん、████████、旧校舎████教室]
+[MSG|left|████|この中で読める文字あった？]
+[MSG|right|読者|「部」と「さん」、「旧校舎」と「教室」だけ読めた……]
+[MSG|left|████|うわっ、████に関すること全てプロテクトかかっているじゃないか！]
+[MSG|left|████|これでどうやって自分のことを話せっていうんですか、████さん……]
+[MSG|left|████|まあいいや、どうせこの日記の中を読んでいったら、いやでもわかるようになるはずだから読んでってよ]
+[MSG|left|████|あ、あと、時々僕に話しかけてよ、ずっとこの日記の中にいると思うと退屈で吐き気が込み上げてきてさ……]
+[/CHAT]
+
+[HR|dots]
+
+[GLOSSARY]
+[TERM|海蝕現象|「海」と呼ばれる異次元の存在が地球に現れる現象。現れた存在を「海蝕実体」という。生物・無機物・建築物など多岐にわたる。]
+[TERM|海蝕部|海蝕現象収束機関九重支部の通称。一般生徒には「回収部」として認知されている。現在は三年生4人・二年生5人・一年生4人で活動中。万年人手不足。]
+[TERM|海蝕現象収束活動|海蝕現象に対処すること。財団のように収容するのではなく、一般人に認知されなければそれでよい、というスタンス。友好的な実体には世話員をつけて人間社会での生活を提案することもある。]
+[TERM|海|この次元とは異なる世界。海蝕実体の出所。]
+[TERM|回収部（仮）日誌|数世代前の先輩が書いた海蝕現象入門ドキュメント。正式名称は「一から学べる海蝕現象！これさえ読めば大丈夫！」。]
+[/GLOSSARY]
+
+[HR]
+
+[FOOTNOTE]
+[N|1|本文書は[ANOMALY|KAISYOKU-DIARY-001|日記型海蝕実体]の緊急起動ログを含みます。]
+[N|2|個人情報プロテクト機能により、持ち主に関する情報は閲覧不可となっています。]
+[/FOOTNOTE]`;
+
+  await client.execute({
+    sql: `INSERT INTO chapters VALUES (?, ?, ?, ?, ?, ?, unixepoch())`,
+    args: [
+      "ch-kkj-001-00",
+      "novel-kkj-001",
+      "エピローグ兼プロローグ",
+      0,
+      chapterPrologueContent,
+      "published",
+    ],
+  });
+
+  console.log("✅ 海蝕部データを追加しました。");
 
   console.log("✅ Seed complete.");
   await client.close();
