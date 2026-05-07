@@ -1,5 +1,8 @@
-// 編集日時: 2026-04-29
+// 編集日時: 2026-05-07 (add: ログアウトボタン)
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const LINKS = [
   { href: "/admin/editor",   icon: "✍", color: "amber",  title: "小説エディタ",        sub: "執筆・章管理・NMLプレビュー・版管理・メモ" },
@@ -21,6 +24,13 @@ const TITLE_COLOR: Record<string, string> = {
 };
 
 export default function AdminDashboard() {
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+    router.replace('/admin/login');
+  };
+
   return (
     <div className="min-h-screen bg-[#06090c] text-gray-300 flex items-center justify-center p-8">
       <div className="w-full max-w-lg">
@@ -44,6 +54,16 @@ export default function AdminDashboard() {
               <span className="text-gray-700 group-hover:text-gray-400 transition-colors">→</span>
             </Link>
           ))}
+        </div>
+
+        {/* ログアウト */}
+        <div className="mt-6 pt-4 border-t border-gray-800/60 text-center">
+          <button
+            onClick={handleLogout}
+            className="text-[11px] font-mono text-gray-700 hover:text-red-500 transition-colors tracking-widest"
+          >
+            ⏻ ログアウト
+          </button>
         </div>
       </div>
     </div>
