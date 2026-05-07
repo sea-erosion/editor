@@ -353,6 +353,11 @@ function EditorContent() {
   const handleContentChange = useCallback((v: string) => { setContent(v); scheduleAutosave(chapterTitle, v); }, [chapterTitle, scheduleAutosave]);
   const handleTitleChange   = useCallback((v: string) => { setChapterTitle(v); scheduleAutosave(v, content); }, [content, scheduleAutosave]);
 
+  // P-7: アンマウント時に autosave タイムアウトをクリアしてメモリリークを防ぐ
+  useEffect(() => {
+    return () => { if (autosaveRef.current) clearTimeout(autosaveRef.current); };
+  }, []);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
