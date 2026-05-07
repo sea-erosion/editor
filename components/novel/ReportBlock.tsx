@@ -1,7 +1,7 @@
-// 編集日時: 2026-05-03
+// 編集日時: 2026-05-05
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface ReportBlockProps {
   classification: string;
@@ -10,15 +10,37 @@ interface ReportBlockProps {
 }
 
 export function ReportBlock({ classification, date, content }: ReportBlockProps) {
+  const [inView, setInView]           = useState(false);
   const [stampDropped, setStampDropped] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hasTriggered = useRef(false);
 
+  // スクロール連動出現 (2026-05-05)
   useEffect(() => {
-    const t = setTimeout(() => setStampDropped(true), 300);
-    return () => clearTimeout(t);
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasTriggered.current) {
+          hasTriggered.current = true;
+          observer.disconnect();
+          setInView(true);
+          // コンテナが出現してからスタンプを落とす
+          setTimeout(() => setStampDropped(true), 350);
+        }
+      },
+      { threshold: 0.12 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   return (
-    <div className="my-6 border border-gray-600/50 rounded-sm overflow-hidden bg-[#0e1117]">
+    <div
+      ref={containerRef}
+      className={`my-6 border border-gray-600/50 rounded-sm overflow-hidden bg-[#0e1117]
+        ${inView ? "nml-report-visible" : "nml-report-hidden"}`}
+    >
       {/* ヘッダーバー */}
       <div className="flex items-center justify-between px-5 py-2.5 bg-gray-800/60 border-b border-gray-600/40">
         <div className="flex items-center gap-3">
@@ -36,7 +58,7 @@ export function ReportBlock({ classification, date, content }: ReportBlockProps)
 
       {/* 本文エリア */}
       <div className="relative">
-        {/* スタンプ風ウォーターマーク — ドロップアニメあり */}
+        {/* スタンプ風ウォーターマーク */}
         <div
           className="absolute top-3 right-4 text-[10px] font-mono text-gray-700/40 border border-gray-700/30 px-2 py-1 rounded tracking-[0.15em] uppercase select-none rotate-[-8deg] pointer-events-none"
           aria-hidden
