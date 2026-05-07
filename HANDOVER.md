@@ -1,9 +1,9 @@
 # scp-novel-improved — Claude 引き継ぎ文書
 
 > 作成日: 2026-05-03  
-> 更新日: 2026-05-03  
+> 更新日: 2026-05-07  
 > 前担当: Claude Sonnet 4.6  
-> ステータス: バグ修正済み・認証実装済み・NML記法追加済み・未完タスクなし
+> ステータス: 全既知バグ・セキュリティ問題修正済み・パスワード認証方式に移行済み
 
 ---
 
@@ -34,8 +34,8 @@ npm run seed         # 初期データ投入
 ```
 TURSO_DATABASE_URL=   # 省略時は file:local.db
 TURSO_AUTH_TOKEN=
-ADMIN_TOKEN=                    # サーバーサイドAPI認証トークン（必須）
-NEXT_PUBLIC_ADMIN_TOKEN=        # フロントエンド用（ADMIN_TOKENと同値）
+ADMIN_TOKEN=          # 管理API認証トークン（必須・openssl rand -hex 32 で生成）
+# ⚠️ NEXT_PUBLIC_ADMIN_TOKEN は廃止・設定禁止（ブラウザバンドルに埋め込まれるため）
 ```
 
 ---
@@ -197,6 +197,15 @@ scp-novel-improved/
 | L-3 | バックアップインポート時の timestamp 型不一致 → UNIX epoch 変換追加 |
 | L-4 | `PERSON` vs `personnel` 命名混在 → `CLAUDE.md` に規約明記 |
 
+### セキュリティ修正（2026-05-07）
+
+| # | 内容 | 修正ファイル |
+|---|---|---|
+| S-1 | `/admin/**` ページに認証ガードなし（LoginGate 未実装） | `middleware.ts` — matcher に `/admin/:path*` 追加、Cookie 検証でサーバーサイドリダイレクト |
+| S-2 | `NEXT_PUBLIC_ADMIN_TOKEN` がブラウザバンドルに露出 | `lib/admin-fetch.ts` — 環境変数フォールバックを削除。さらに HttpOnly Cookie 方式に完全移行し localStorage も廃止 |
+| S-3 | `adminFetch()` が 401 を受けてもリダイレクトしない | `lib/admin-fetch.ts` — 401 受信時に `clearAdminToken()` + `window.location.replace()` を追加 |
+| S-4 | `/api/reactions` POST にレート制限なし | `app/api/reactions/route.ts` — IP ベースのインメモリレート制限（60秒/10件）を追加 |
+
 ---
 
 ## 5. あなたへの依頼タスク
@@ -216,11 +225,12 @@ scp-novel-improved/
 ```bash
 # openssl rand -hex 32 などで生成
 ADMIN_TOKEN=<ランダムな長い文字列>
-NEXT_PUBLIC_ADMIN_TOKEN=<上と同じ値>
+# NEXT_PUBLIC_ADMIN_TOKEN は廃止・設定しないこと
 ```
 
-> ⚠️ `NEXT_PUBLIC_ADMIN_TOKEN` はブラウザから見える。本番環境では管理画面自体を IP 制限 / VPN 背後に置くこと。  
-> セキュリティ要件がより高い場合はセッション Cookie + サーバーサイド検証への移行を検討。
+> ⚠️ 2026-05-07 に認証方式を更新済み。`NEXT_PUBLIC_ADMIN_TOKEN` は**設定禁止**。  
+> ログイン画面でトークンを入力 → localStorage + `admin_session` Cookie に保存 → middleware が Cookie を検証する方式に移行した。  
+> 本番環境では管理画面を IP 制限 / VPN 背後に置くことを強く推奨。
 
 ---
 
@@ -296,3 +306,97 @@ chapters    : id(PK), novelId(FK→novels CASCADE), title, chapterNumber,
 - **`params` は Promise** — Next.js 16 系では `const { id } = await params;` とすること
 - **`app/admin/editor/page.tsx`** は `useSearchParams` を使うため `<Suspense>` でラップ済み。`EditorContent` が実体コンポーネント
 - **管理API呼び出しは必ず `adminFetch()`** を使うこと（`lib/admin-fetch.ts`）。素の `fetch()` を使うと 401 になる
+- **認証フロー（2026-05-07 更新）**: `/admin/login` でパスワード入力 → `POST /api/admin/login` が検証し HttpOnly Cookie を発行 → `middleware.ts` が Cookie でページ・APIを保護 → `adminFetch()` が 401 を受けたら自動リダイレクト → ログアウトは `POST /api/admin/logout` で Cookie を削除
+
+---
+
+## 8. セキュリティ・バグ修正ログ（2026-05-07）
+
+以下はコードレビューで発見し、**すべて修正済み**の問題。
+
+### 🔴 重大（修正済み）
+
+#### P-1 ✅: スナップショット API のパストラバーサル脆弱性
+
+**ファイル**: `app/api/admin/chapters/[id]/snapshots/route.ts`  
+**問題**: 章 ID（`[id]`）をサニタイズせずそのままファイルパスに結合している。
+
+```typescript
+// 現状（危険）
+function snapPath(id: string) { return join(SNAP_DIR, `${id}.json`); }
+// id が "../../etc/passwd" だった場合、SNAP_DIR 外のファイルを読み書きできる
+```
+
+**修正方針**: `path.resolve()` でフルパスを確定してから、`SNAP_DIR` 以下に収まるか検証する。
+
+```typescript
+import { resolve } from "path";
+
+function snapPath(id: string): string {
+  // id に使える文字を英数字・ハイフンに制限する
+  if (!/^[\w-]+$/.test(id)) throw new Error("Invalid chapter id");
+  const resolved = resolve(SNAP_DIR, `${id}.json`);
+  if (!resolved.startsWith(SNAP_DIR + path.sep)) throw new Error("Path traversal detected");
+  return resolved;
+}
+```
+
+---
+
+### 🟡 中程度（修正済み）
+
+#### P-2 ✅: 検索クエリに長さ上限がない
+
+**ファイル**: `app/api/admin/search/route.ts`  
+**問題**: `q` パラメータが1文字以上なら無制限に受け付ける。数KB の文字列を渡すと `LIKE '%...%'` を含む重いクエリを全テーブルに並列実行される。  
+**修正方針**: `if (q.length > 100) return 400;` を追加する。
+
+#### P-3 ✅: 小説スラッグのフォーマット検証がない
+
+**ファイル**: `app/api/admin/novels/route.ts`（POST）  
+**問題**: スラッグに日本語・スペース・記号が入っても通ってしまう。URLが壊れる。  
+**修正方針**: `/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug)` でバリデーションを追加。
+
+#### P-4 ✅: 章ステータスの値バリデーションがない
+
+**ファイル**: `app/api/admin/chapters/[id]/route.ts`（PATCH）  
+**問題**: `status` に任意の文字列が入る。`"published"` と `"draft"` のみ許可すべき。  
+**修正方針**: `if (status !== undefined && !['published','draft'].includes(status)) return 400;`
+
+#### P-5 ✅: 章番号・エンティティIDの型バリデーションがない
+
+**ファイル**: `app/api/admin/chapters/route.ts`（POST）  
+**問題**: `chapterNumber` が整数かどうかを検証していない。小数・負数・文字列が通る。  
+**修正方針**: `if (!Number.isInteger(chapterNumber) || chapterNumber < 1) return 400;`
+
+#### P-6 ✅: 小説 PATCH 時のスラッグ重複を 500 で返す
+
+**ファイル**: `app/api/admin/novels/[id]/route.ts`（PATCH）  
+**問題**: スラッグ変更時に UNIQUE 制約違反が発生しても catch 内で 409 を返さず 500 になる。  
+**修正方針**: POST 側と同様に `e?.message?.includes("UNIQUE")` で 409 を返す分岐を追加。
+
+---
+
+### 🟢 軽微（修正済み）
+
+#### P-7 ✅: `autosaveRef` のタイムアウトが unmount 時に未クリア
+
+**ファイル**: `app/admin/editor/page.tsx`  
+**問題**: `scheduleAutosave` で設定した `setTimeout` が cleanup されないため、コンポーネントのアンマウント後に保存処理が走る可能性がある（メモリリーク）。  
+**修正方針**: autosave を設定している `useEffect` の return で `clearTimeout(autosaveRef.current)` を呼ぶ。
+
+#### P-8 ✅: ログアウト後リダイレクトのオープンリダイレクト
+
+**ファイル**: `middleware.ts`  
+**問題**: `?from=pathname` をそのまま付与しているため、`/admin/login?from=https://evil.com` のような URL を踏むと外部サイトにリダイレクトされる。  
+**修正方針**: `from` が `/` で始まる相対パスであることを検証してから使用する。
+
+```typescript
+// middleware.ts の redirect 生成箇所
+const safePath = pathname.startsWith('/') ? pathname : '/admin';
+url.searchParams.set('from', safePath);
+// ログイン後のリダイレクト（login/page.tsx）でも同様に検証する
+const redirect = searchParams.get('from');
+const safeRedirect = redirect?.startsWith('/') ? redirect : '/admin';
+router.replace(safeRedirect);
+```
