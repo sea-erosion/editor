@@ -15,7 +15,7 @@ function PreviewContent() {
 
   useEffect(() => {
     if (!chapterId) return;
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     adminFetch(`/api/admin/chapters/${chapterId}`)
       .then(r => r.json())
       .then(d => { setContent(d.content ?? ""); setTitle(d.title ?? ""); })

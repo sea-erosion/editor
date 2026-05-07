@@ -1,7 +1,7 @@
 // 編集日時: 2026-05-05
 import { db } from "@/db/client";
-import { anomalies, chapters, facilities, incidents, modules, novels, personnel } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { anomalies, chapters, facilities, incidents, modules, novels, personnel, reactions } from "@/db/schema";
+import { desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 function bodyChars(content: string) {

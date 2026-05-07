@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --font-serif: "Noto Serif JP", serif;
-  --font-mono: "Share Tech Mono", monospace;
-  --font-sans: "Noto Sans JP", sans-serif;
+  --font-serif: "Hiragino Mincho ProN", "Yu Mincho", "Times New Roman", serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 body {

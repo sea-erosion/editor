@@ -2,7 +2,7 @@
 "use client";
 
 import { buildHighlightedHTML } from "@/lib/nml-highlight";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface NmlEditorProps {
   value: string;
@@ -161,10 +161,10 @@ export function NmlEditor({ value, onChange, placeholder }: NmlEditorProps) {
   const highlightRef  = useRef<HTMLDivElement>(null);
   const lineNumberRef = useRef<HTMLDivElement>(null);
 
-  const [highlightedHtml, setHighlightedHtml] = useState("");
-  const [charCount,       setCharCount]       = useState(0);
-  const [bodyCharCount,   setBodyCharCount]   = useState(0);
-  const [lineCount,       setLineCount]       = useState(1);
+  const highlightedHtml = useMemo(() => buildHighlightedHTML(value), [value]);
+  const charCount = value.length;
+  const bodyCharCount = useMemo(() => value.replace(/\[[^\]]*\]/g, "").replace(/\s/g, "").length, [value]);
+  const lineCount = useMemo(() => value.split("\n").length, [value]);
   const [cursorLine,      setCursorLine]      = useState(1);
   const [cursorCol,       setCursorCol]       = useState(1);
 
@@ -175,12 +175,6 @@ export function NmlEditor({ value, onChange, placeholder }: NmlEditorProps) {
   const [entityLoading,     setEntityLoading]     = useState(false);
   const [showReference,     setShowReference]     = useState(false);
 
-  useEffect(() => {
-    setHighlightedHtml(buildHighlightedHTML(value));
-    setCharCount(value.length);
-    setBodyCharCount(value.replace(/\[[^\]]*\]/g, "").replace(/\s/g, "").length);
-    setLineCount(value.split("\n").length);
-  }, [value]);
 
   const syncScroll = useCallback(() => {
     const ta = textareaRef.current;
@@ -204,7 +198,7 @@ export function NmlEditor({ value, onChange, placeholder }: NmlEditorProps) {
   // エンティティ検索
   useEffect(() => {
     if (!showEntityPalette) return;
-    setEntityLoading(true);
+    queueMicrotask(() => setEntityLoading(true));
     const params = new URLSearchParams({ type: entityType });
     if (entitySearch) params.set("q", entitySearch);
     fetch(`/api/admin/entities?${params}`)

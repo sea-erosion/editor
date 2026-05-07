@@ -1,9 +1,9 @@
 import { db } from "@/db/client";
-import { chapters, novels } from "@/db/schema";
+import { novels } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const allNovels = await db.select().from(novels).where(eq(novels.status, "published"));
     return NextResponse.json(allNovels);

@@ -1,7 +1,7 @@
 // 編集日時: 2026-05-05
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const EMOJIS = ["❤️", "👍", "😭", "🔥", "✨", "😮", "👏", "💀"];
 const MAX_COMMENT = 200;
@@ -19,7 +19,7 @@ interface ReactionPanelProps {
   chapterTitle: string;
 }
 
-export function ReactionPanel({ novelId, chapterId, chapterTitle }: ReactionPanelProps) {
+export function ReactionPanel({ novelId, chapterId }: ReactionPanelProps) {
   const [counts, setCounts]         = useState<Record<string, number>>({});
   const [recent, setRecent]         = useState<RecentComment[]>([]);
   const [selected, setSelected]     = useState<string | null>(null);
@@ -52,7 +52,7 @@ export function ReactionPanel({ novelId, chapterId, chapterTitle }: ReactionPane
   }, []);
 
   // リアクション数を取得
-  const fetchCounts = async () => {
+  const fetchCounts = useCallback(async () => {
     try {
       const res = await fetch(`/api/reactions?novelId=${novelId}&chapterId=${chapterId}`);
       if (!res.ok) return;
@@ -60,9 +60,9 @@ export function ReactionPanel({ novelId, chapterId, chapterTitle }: ReactionPane
       setCounts(data.counts ?? {});
       setRecent(data.recent ?? []);
     } catch {}
-  };
+  }, [chapterId, novelId]);
 
-  useEffect(() => { fetchCounts(); }, [novelId, chapterId]);
+  useEffect(() => { queueMicrotask(() => fetchCounts()); }, [fetchCounts]);
 
   const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
 

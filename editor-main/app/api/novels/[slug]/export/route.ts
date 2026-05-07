@@ -45,17 +45,6 @@ function stripNml(content: string): string {
     .replace(/\[[^\]]*\]/g, "");
 }
 
-function toXhtml(title: string, body: string, chNum: number): string {
-  const paragraphs = body.split(/\n\n+/).map(p => p.trim()).filter(Boolean)
-    .map(p => p.startsWith("<") ? p : `<p>${p.replace(/\n/g, "<br/>")}</p>`).join("\n");
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja">
-<head><meta charset="UTF-8"/><title>${title}</title><link rel="stylesheet" href="../Styles/style.css"/></head>
-<body><h1>${title}</h1>${paragraphs}</body>
-</html>`;
-}
-
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const novelRows = await db.select().from(novels).where(eq(novels.slug, slug));

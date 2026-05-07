@@ -148,18 +148,18 @@ function RightPanel({ chapter, content, title, onClose }: { chapter: Chapter; co
   const [snapLoading, setSnapLoading] = useState(false);
   const memoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    adminFetch(`/api/admin/chapters/${chapter.id}/memo`).then(r => r.json()).then(d => setMemo(d.memo ?? "")).catch(() => {});
-  }, [chapter.id]);
-  useEffect(() => { if (tab === "snapshots") loadSnapshots(); }, [tab, chapter.id]);
-
-  const loadSnapshots = async () => {
+  const loadSnapshots = useCallback(async () => {
     setSnapLoading(true);
     const res = await adminFetch(`/api/admin/chapters/${chapter.id}/snapshots`);
     const data = await res.json();
     setSnapshots(Array.isArray(data) ? data : []);
     setSnapLoading(false);
-  };
+  }, [chapter.id]);
+
+  useEffect(() => {
+    adminFetch(`/api/admin/chapters/${chapter.id}/memo`).then(r => r.json()).then(d => setMemo(d.memo ?? "")).catch(() => {});
+  }, [chapter.id]);
+  useEffect(() => { queueMicrotask(() => { if (tab === "snapshots") loadSnapshots(); }); }, [tab, loadSnapshots]);
 
   const saveMemo = (v: string) => {
     setMemo(v); setMemoSaved(false);
@@ -306,7 +306,7 @@ function EditorContent() {
         if (target) { setSelectedNovel(target); setSidebarTab("chapters"); }
       }
     }).catch(console.error);
-  }, []);
+  }, [initNovelId]);
   useEffect(() => {
     if (!selectedNovel) return;
     adminFetch(`/api/admin/chapters?novelId=${selectedNovel.id}`).then(r => r.json()).then((data: Chapter[]) => {
@@ -316,11 +316,13 @@ function EditorContent() {
         if (target) setSelectedChapter(target);
       }
     }).catch(console.error);
-  }, [selectedNovel]);
+  }, [selectedNovel, initChapterId]);
   useEffect(() => {
     if (!selectedChapter) return;
-    setContent(selectedChapter.content); setChapterTitle(selectedChapter.title);
-    setSaveState("saved"); isDirty.current = false;
+    queueMicrotask(() => {
+      setContent(selectedChapter.content); setChapterTitle(selectedChapter.title);
+      setSaveState("saved"); isDirty.current = false;
+    });
   }, [selectedChapter]);
 
   useEffect(() => {

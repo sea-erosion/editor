@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   if (req.nextUrl.pathname.startsWith('/api/admin')) {
     const auth  = req.headers.get('authorization');
     const token = process.env.ADMIN_TOKEN;

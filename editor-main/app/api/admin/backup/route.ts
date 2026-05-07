@@ -8,6 +8,10 @@ type TableKey = keyof typeof TABLES;
 const ORDER: TableKey[]  = ["anomalies","modules","incidents","facilities","personnel","novels","chapters"];
 const REVERSE: TableKey[] = [...ORDER].reverse();
 
+function isConstraintError(error: unknown) {
+  return error instanceof Error && (error.message.includes("UNIQUE") || error.message.includes("SQLITE_CONSTRAINT"));
+}
+
 // ── エクスポート ─────────────────────────────────────────────────────
 export async function GET() {
   try {
@@ -49,7 +53,7 @@ export async function POST(req: NextRequest) {
     const results: Record<string, { inserted: number; skipped: number }> = {};
 
     if (mode === "replace") {
-      for (const key of REVERSE) await db.delete(TABLES[key] as any);
+      for (const key of REVERSE) await db.delete(TABLES[key] as never);
     }
 
     for (const key of ORDER) {
@@ -75,10 +79,10 @@ export async function POST(req: NextRequest) {
               : typeof v === "object"         ? JSON.stringify(v)
               : v;
           }
-          await db.insert(TABLES[key] as any).values(values);
+          await db.insert(TABLES[key] as never).values(values as never);
           inserted++;
-        } catch (e: any) {
-          if (e?.message?.includes("UNIQUE") || e?.message?.includes("SQLITE_CONSTRAINT")) skipped++;
+        } catch (e) {
+          if (isConstraintError(e)) skipped++;
           else throw e;
         }
       }

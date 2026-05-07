@@ -1,6 +1,6 @@
 import { db } from "@/db/client";
 import { chapters, novels } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import Link from "next/link";
 
 async function getNovels() {

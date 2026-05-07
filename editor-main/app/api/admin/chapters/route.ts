@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
       .where(eq(chapters.novelId, novelId))
       .orderBy(chapters.chapterNumber);
     return NextResponse.json(chs);
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

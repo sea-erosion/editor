@@ -119,7 +119,6 @@ const INLINE_TYPES = new Set([
   ...Object.keys(ENTITY_TOKEN_TYPES),
 ]);
 
-const BLOCK_INLINE_TYPES = new Set(["timestamp"]); // ブロックとして独立させないインライン
 
 export function NovelRenderer({ content }: NovelRendererProps) {
   const tokens = useMemo(() => parseNovelMarkup(content), [content]);
