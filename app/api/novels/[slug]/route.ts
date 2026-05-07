@@ -1,6 +1,7 @@
+// 編集日時: 2026-05-07 (fix: BUG-2 draft章を公開APIから除外)
 import { db } from "@/db/client";
 import { chapters, novels } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
@@ -17,7 +18,7 @@ export async function GET(
     const chapterRows = await db
       .select()
       .from(chapters)
-      .where(eq(chapters.novelId, novel.id))
+      .where(and(eq(chapters.novelId, novel.id), eq(chapters.status, "published")))
       .orderBy(chapters.chapterNumber);
 
     return NextResponse.json({ novel, chapters: chapterRows });
