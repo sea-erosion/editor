@@ -1,7 +1,10 @@
+// 編集日時: 2026-05-07 (fix P-4: statusバリデーション追加 / fix P-5: chapterNumber型バリデーション追加)
 import { db } from "@/db/client";
 import { chapters, novels } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+
+const VALID_STATUSES = ["published", "draft"] as const;
 
 // GET single chapter
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -17,6 +20,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const body = await req.json();
     const { title, chapterNumber, content, status } = body;
+
+    // status バリデーション (P-4)
+    if (status !== undefined && !VALID_STATUSES.includes(status)) {
+      return NextResponse.json(
+        { error: `status は "${VALID_STATUSES.join('" または "')}" のみ指定できます` },
+        { status: 400 }
+      );
+    }
+
+    // chapterNumber 型バリデーション (P-5)
+    if (chapterNumber !== undefined && (!Number.isInteger(chapterNumber) || chapterNumber < 1)) {
+      return NextResponse.json(
+        { error: "chapterNumber は1以上の整数を指定してください" },
+        { status: 400 }
+      );
+    }
+
     await db.update(chapters).set({
       ...(title !== undefined && { title }),
       ...(chapterNumber !== undefined && { chapterNumber }),
