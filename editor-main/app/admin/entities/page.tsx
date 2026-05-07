@@ -2,7 +2,8 @@
 "use client";
 
 import { adminFetch } from "@/lib/admin-fetch";
-import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 type EntityType = "anomaly" | "module" | "incident" | "facility" | "personnel";
 
@@ -122,7 +123,7 @@ export default function EntitiesAdminPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const loadEntities = async (type: EntityType) => {
+  const loadEntities = useCallback(async (type: EntityType) => {
     setLoading(true);
     try {
       const res = await adminFetch(`/api/admin/entities?type=${type}&full=1`);
@@ -130,9 +131,9 @@ export default function EntitiesAdminPage() {
       setEntities(Array.isArray(data) ? data : []);
     } catch { setEntities([]); }
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { loadEntities(activeType); }, [activeType]);
+  useEffect(() => { queueMicrotask(() => loadEntities(activeType)); }, [activeType, loadEntities]);
 
   const openNew = () => {
     setFormData({});
@@ -237,14 +238,14 @@ export default function EntitiesAdminPage() {
           </button>
         ))}
         <div className="mt-4 mx-3 pt-4 border-t border-gray-800">
-          <a href="/admin/editor"
+          <Link href="/admin/editor"
             className="block text-[11px] font-mono text-gray-700 hover:text-gray-500 transition-colors py-1">
             ← エディタへ
-          </a>
-          <a href="/"
+          </Link>
+          <Link href="/"
             className="block text-[11px] font-mono text-gray-700 hover:text-gray-500 transition-colors py-1">
             ← サイトへ
-          </a>
+          </Link>
         </div>
       </aside>
 

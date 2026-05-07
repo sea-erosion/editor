@@ -31,7 +31,7 @@ export function ReadingProgress({ novelSlug, totalChapters, currentChapter }: Re
   useEffect(() => {
     try {
       const saved = localStorage.getItem(BOOKMARK_KEY(novelSlug));
-      if (saved) setBookmark(parseInt(saved, 10));
+      if (saved) queueMicrotask(() => setBookmark(parseInt(saved, 10)));
     } catch {}
   }, [novelSlug]);
 

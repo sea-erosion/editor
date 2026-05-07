@@ -1,6 +1,6 @@
 import { db } from "@/db/client";
 import { chapters, novels } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 // GET /api/admin/novels — list all novels with chapter count
@@ -42,8 +42,8 @@ export async function POST(req: NextRequest) {
     });
     const created = await db.select().from(novels).where(eq(novels.id, id));
     return NextResponse.json(created[0], { status: 201 });
-  } catch (e: any) {
-    if (e?.message?.includes("UNIQUE")) {
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("UNIQUE")) {
       return NextResponse.json({ error: "スラッグが既に使用されています" }, { status: 409 });
     }
     console.error(e);

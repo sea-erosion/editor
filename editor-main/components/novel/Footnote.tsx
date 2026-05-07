@@ -1,7 +1,5 @@
 // 編集日時: 2026-04-29
 "use client";
-import { useRef } from "react";
-
 interface FootnoteItem { num: number; text: string; }
 interface FootnoteBlockProps { items: FootnoteItem[]; }
 

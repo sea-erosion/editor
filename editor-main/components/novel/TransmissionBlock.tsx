@@ -10,6 +10,10 @@ interface TransmissionBlockProps {
 }
 
 // ランダムノイズ文字列
+function decodingNoiseLength(index: number) {
+  return 20 + ((index * 17 + 23) % 41);
+}
+
 function noiseChar() {
   const chars = "█▓▒░╳╬╪╫▪▫◆◇▲△▼▽×+";
   return chars[Math.floor(Math.random() * chars.length)];
@@ -85,7 +89,7 @@ export function TransmissionBlock({ from, to, content }: TransmissionBlockProps)
           <div className="space-y-1">
             {content.split("\n").filter(Boolean).map((_, i) => (
               <div key={i} className="flex items-center gap-1">
-                <NoiseText length={Math.min(60, 20 + Math.random() * 40 | 0)} />
+                <NoiseText length={decodingNoiseLength(i)} />
               </div>
             ))}
             <p className="text-[10px] font-mono text-cyan-800 mt-2 animate-pulse">

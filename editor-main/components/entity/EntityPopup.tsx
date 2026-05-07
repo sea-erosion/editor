@@ -306,7 +306,7 @@ function UsageFooter({ entityId, borderCls, detailPath, onClose, pushFn }: {
           }
         </div>
       )}
-      <button onClick={() => pushFn(detailPath)}
+      <button onClick={() => { onClose(); pushFn(detailPath); }}
         className={`w-full text-xs font-mono py-1.5 rounded transition-all border ${borderCls} text-gray-400 hover:text-gray-100 hover:bg-gray-800`}>
         詳細を表示 →
       </button>

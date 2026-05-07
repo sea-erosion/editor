@@ -1,6 +1,5 @@
 import { db } from "@/db/client";
 import { anomalies, facilities, incidents, modules, personnel } from "@/db/schema";
-import { EntityType } from "@/types";
 import { eq } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -22,6 +21,36 @@ const CLASSIFICATION_COLORS: Record<string, string> = {
   Safe:"text-green-400", Euclid:"text-yellow-400", Keter:"text-red-400",
   Thaumiel:"text-violet-400", Critical:"text-red-400", Major:"text-orange-400",
   Active:"text-green-400", Resolved:"text-gray-400", Ongoing:"text-red-400",
+};
+
+type EntityView = Record<string, unknown> & {
+  id: string;
+  name?: string | null;
+  codename?: string | null;
+  classification?: string | null;
+  severity?: string | null;
+  containmentClass?: string | null;
+  riskClass?: string | null;
+  disruptionClass?: string | null;
+  description: string;
+  containmentProcedures?: string | null;
+  addendum?: string | null;
+  tags?: string[] | null;
+  specifications?: Record<string, string> | string[] | null;
+  relatedAnomalies?: string[] | null;
+  relatedPersonnel?: string[] | null;
+  type: string;
+  status: string;
+  date: string;
+  location?: string | null;
+  casualties?: string | null;
+  capacity?: number | null;
+  director?: string | null;
+  containedAnomalies?: string[] | null;
+  rank: string;
+  clearance: number;
+  assignedFacility?: string | null;
+  specialties?: string[] | null;
 };
 
 async function getEntity(type: string, id: string) {
@@ -85,7 +114,7 @@ export default async function EntityDetailPage({ params }: { params: Promise<{ t
   if (!data) notFound();
 
   const colors = TYPE_COLORS[type] || TYPE_COLORS.anomaly;
-  const { entity } = data;
+  const entity = data.entity as unknown as EntityView;
 
   return (
     <div>
@@ -103,22 +132,22 @@ export default async function EntityDetailPage({ params }: { params: Promise<{ t
               {TYPE_LABELS[type]}
             </span>
             <span className="text-[11px] font-mono text-gray-600">{id}</span>
-            {(entity as any).classification && (
-              <span className={`text-[11px] font-mono ${CLASSIFICATION_COLORS[(entity as any).classification] || "text-gray-400"}`}>
-                {(entity as any).classification}
+            {entity.classification && (
+              <span className={`text-[11px] font-mono ${CLASSIFICATION_COLORS[entity.classification] || "text-gray-400"}`}>
+                {entity.classification}
               </span>
             )}
-            {(entity as any).severity && (
-              <span className={`text-[11px] font-mono ${CLASSIFICATION_COLORS[(entity as any).severity] || "text-gray-400"}`}>
-                深刻度: {(entity as any).severity}
+            {entity.severity && (
+              <span className={`text-[11px] font-mono ${CLASSIFICATION_COLORS[entity.severity] || "text-gray-400"}`}>
+                深刻度: {entity.severity}
               </span>
             )}
           </div>
           <h1 className="text-xl font-serif text-gray-100 font-medium">
-            {(entity as any).name || (entity as any).codename || id}
+            {entity.name || entity.codename || id}
           </h1>
-          {(entity as any).codename && type === "personnel" && (
-            <p className="text-violet-400 text-sm font-mono mt-0.5">「{(entity as any).codename}」</p>
+          {entity.codename && type === "personnel" && (
+            <p className="text-violet-400 text-sm font-mono mt-0.5">「{entity.codename}」</p>
           )}
         </div>
 
@@ -126,7 +155,7 @@ export default async function EntityDetailPage({ params }: { params: Promise<{ t
         <div className="p-6">
           {/* Anomaly */}
           {type === "anomaly" && (() => {
-            const a = entity as any;
+            const a = entity;
             return (
               <>
                 {(a.containmentClass || a.riskClass || a.disruptionClass) && (
@@ -164,7 +193,7 @@ export default async function EntityDetailPage({ params }: { params: Promise<{ t
 
           {/* Module */}
           {type === "module" && (() => {
-            const m = entity as any;
+            const m = entity;
             return (
               <>
                 <div className="flex gap-2 flex-wrap mb-4">
@@ -201,7 +230,7 @@ export default async function EntityDetailPage({ params }: { params: Promise<{ t
 
           {/* Incident */}
           {type === "incident" && (() => {
-            const i = entity as any;
+            const i = entity;
             return (
               <>
                 <div className="flex gap-2 flex-wrap mb-4">
@@ -232,7 +261,7 @@ export default async function EntityDetailPage({ params }: { params: Promise<{ t
 
           {/* Facility */}
           {type === "facility" && (() => {
-            const f = entity as any;
+            const f = entity;
             return (
               <>
                 <div className="flex gap-2 flex-wrap mb-4">
@@ -262,7 +291,7 @@ export default async function EntityDetailPage({ params }: { params: Promise<{ t
 
           {/* Personnel */}
           {type === "personnel" && (() => {
-            const p = entity as any;
+            const p = entity;
             return (
               <>
                 <div className="flex gap-2 flex-wrap mb-4">

@@ -13,7 +13,7 @@ export function TerminalBlock({ content, prompt = ">" }: TerminalBlockProps) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setVisibleCount(0);
+    queueMicrotask(() => setVisibleCount(0));
     let idx = 0;
     const schedule = () => {
       timerRef.current = setTimeout(() => {

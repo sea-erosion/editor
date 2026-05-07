@@ -1,7 +1,7 @@
 // 編集日時: 2026-05-05
 import { db } from "@/db/client";
 import { chapters, novels, reactions } from "@/db/schema";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 const ALLOWED_EMOJIS = ["❤️", "👍", "😭", "🔥", "✨", "😮", "👏", "💀"];

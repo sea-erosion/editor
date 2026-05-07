@@ -13,6 +13,10 @@ const TABLE_MAP = {
 
 type TableKey = keyof typeof TABLE_MAP;
 
+function isConstraintError(error: unknown) {
+  return error instanceof Error && (error.message.includes("UNIQUE") || error.message.includes("SQLITE_CONSTRAINT"));
+}
+
 // JSON配列・オブジェクトフィールドを文字列化し、camelCaseキーはそのまま保持する
 // (Drizzle は camelCase プロパティ名でカラムをマッピングする)
 function serializeBody(body: Record<string, unknown>): Record<string, unknown> {
@@ -39,7 +43,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    let rows = await db.select().from(TABLE_MAP[type] as any) as Array<Record<string, unknown>>;
+    let rows = await db.select().from(TABLE_MAP[type]) as Array<Record<string, unknown>>;
 
     if (q) {
       rows = rows.filter((r) =>
@@ -74,13 +78,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "id と name は必須です" }, { status: 400 });
     }
 
-    await db.insert(TABLE_MAP[type] as any).values(values);
+    await db.insert(TABLE_MAP[type] as never).values(values as never);
 
-    const created = await db.select().from(TABLE_MAP[type] as any);
+    const created = await db.select().from(TABLE_MAP[type]);
     const record = (created as Array<Record<string, unknown>>).find((r) => r.id === values.id);
     return NextResponse.json(record ?? { ok: true }, { status: 201 });
-  } catch (e: any) {
-    if (e?.message?.includes("UNIQUE") || e?.message?.includes("SQLITE_CONSTRAINT")) {
+  } catch (e) {
+    if (isConstraintError(e)) {
       return NextResponse.json({ error: "そのIDは既に使用されています" }, { status: 409 });
     }
     console.error("[POST /api/admin/entities]", e);

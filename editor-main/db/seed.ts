@@ -6,8 +6,6 @@
  * - 既にデータが存在する場合はスキップ（冪等）
  */
 import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
-import * as schema from "./schema";
 
 // ── テーブル初期化（CREATE IF NOT EXISTS） ────────────────────────────
 async function initializeDb(client: ReturnType<typeof createClient>) {
@@ -125,8 +123,6 @@ export async function runSeed(dbUrl?: string, authToken?: string): Promise<void>
     url: dbUrl ?? process.env.TURSO_DATABASE_URL ?? "file:local.db",
     authToken: authToken ?? process.env.TURSO_AUTH_TOKEN,
   });
-  const db = drizzle(client, { schema });
-
   await initializeDb(client);
 
   // 既にnovelsが存在する場合はスキップ

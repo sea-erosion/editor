@@ -13,6 +13,7 @@ const TABLE_MAP = {
 } as const;
 
 type TableKey = keyof typeof TABLE_MAP;
+type EntityTableWithId = (typeof TABLE_MAP)[TableKey] & { id: typeof anomalies.id };
 
 // camelCaseキーを保持したまま JSON配列・オブジェクトのみ文字列化
 function serializeBody(body: Record<string, unknown>): Record<string, unknown> {
@@ -34,10 +35,10 @@ export async function GET(
   { params }: { params: Promise<{ type: string; id: string }> }
 ) {
   const { type, id } = await params;
-  const table = TABLE_MAP[type as TableKey];
+  const table = TABLE_MAP[type as TableKey] as EntityTableWithId;
   if (!table) return NextResponse.json({ error: "Invalid type" }, { status: 400 });
   try {
-    const rows = await db.select().from(table as any).where(eq((table as any).id, id));
+    const rows = await db.select().from(table).where(eq(table.id, id));
     if (!rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(rows[0]);
   } catch (e) {
@@ -52,18 +53,19 @@ export async function PATCH(
   { params }: { params: Promise<{ type: string; id: string }> }
 ) {
   const { type, id } = await params;
-  const table = TABLE_MAP[type as TableKey];
+  const table = TABLE_MAP[type as TableKey] as EntityTableWithId;
   if (!table) return NextResponse.json({ error: "Invalid type" }, { status: 400 });
   try {
     const body = await req.json() as Record<string, unknown>;
     // id は変更不可なので除外
-    const { id: _id, ...rest } = body;
+    const rest = { ...body };
+    delete rest.id;
     const values = serializeBody(rest);
     if (Object.keys(values).length === 0) {
       return NextResponse.json({ error: "更新するフィールドがありません" }, { status: 400 });
     }
-    await db.update(table as any).set(values).where(eq((table as any).id, id));
-    const rows = await db.select().from(table as any).where(eq((table as any).id, id));
+    await db.update(table as never).set(values as never).where(eq(table.id, id));
+    const rows = await db.select().from(table).where(eq(table.id, id));
     return NextResponse.json(rows[0] ?? { ok: true });
   } catch (e) {
     console.error("[PATCH entity]", e);
@@ -77,10 +79,10 @@ export async function DELETE(
   { params }: { params: Promise<{ type: string; id: string }> }
 ) {
   const { type, id } = await params;
-  const table = TABLE_MAP[type as TableKey];
+  const table = TABLE_MAP[type as TableKey] as EntityTableWithId;
   if (!table) return NextResponse.json({ error: "Invalid type" }, { status: 400 });
   try {
-    await db.delete(table as any).where(eq((table as any).id, id));
+    await db.delete(table as never).where(eq(table.id, id));
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[DELETE entity]", e);

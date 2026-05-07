@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
         novelSlug: novelMap[ch.novelId]?.slug ?? "",
       }));
     return NextResponse.json(results);
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

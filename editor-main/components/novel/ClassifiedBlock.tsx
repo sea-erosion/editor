@@ -14,7 +14,7 @@ export function ClassifiedBlock({ reason, content }: ClassifiedBlockProps) {
   const [scanY, setScanY] = useState(0);
 
   useEffect(() => {
-    setScanning(true);
+    queueMicrotask(() => setScanning(true));
     let start: number | null = null;
     const duration = 320;
     const tick = (ts: number) => {
