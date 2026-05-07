@@ -1,6 +1,8 @@
+// 編集日時: 2026-05-07 (fix: draft小説アクセス遮断 / 章ナビをインデックスベースに修正)
 import { NovelRenderer }     from "@/components/novel/NovelRenderer";
 import { ReadingProgress }   from "@/components/novel/ReadingProgress";
 import { MobileToc }         from "@/components/novel/MobileToc";
+import { ReactionPanel }     from "@/components/novel/ReactionPanel";
 import { db } from "@/db/client";
 import { chapters, novels } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -11,6 +13,8 @@ async function getNovelData(slug: string) {
   const novelRows = await db.select().from(novels).where(eq(novels.slug, slug));
   if (!novelRows[0]) return null;
   const novel = novelRows[0];
+  // draft 小説は公開ページからアクセス不可
+  if (novel.status !== "published") return null;
   const chapterList = await db
     .select()
     .from(chapters)
@@ -32,21 +36,26 @@ export default async function NovelPage({
   if (!data) notFound();
 
   const { novel, chapters: chapterList } = data;
-  const currentChapterNum = chapter ? parseInt(chapter) : 1;
-  const currentChapter = chapterList.find((c) => c.chapterNumber === currentChapterNum) ?? chapterList[0];
+  const currentChapterNum = chapter ? parseInt(chapter) : (chapterList[0]?.chapterNumber ?? 1);
+  const currentIndex = chapterList.findIndex((c) => c.chapterNumber === currentChapterNum);
+  // 見つからなければ先頭にフォールバック
+  const currentChapter = currentIndex >= 0 ? chapterList[currentIndex] : chapterList[0];
+  const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+  const prevChapter = safeIndex > 0 ? chapterList[safeIndex - 1] : null;
+  const nextChapter = safeIndex < chapterList.length - 1 ? chapterList[safeIndex + 1] : null;
 
   return (
     <>
       <ReadingProgress
         novelSlug={slug}
         totalChapters={chapterList.length}
-        currentChapter={currentChapterNum}
+        currentChapter={safeIndex + 1}
       />
       {/* スマホ用折りたたみ目次 */}
       <MobileToc
         slug={slug}
         chapters={chapterList}
-        currentChapterNum={currentChapterNum}
+        currentChapterNum={currentChapter?.chapterNumber ?? chapterList[0]?.chapterNumber}
       />
 
       <div className="flex gap-8 pt-10">
@@ -60,7 +69,7 @@ export default async function NovelPage({
                   key={ch.id}
                   href={`/novels/${slug}?chapter=${ch.chapterNumber}`}
                   className={`block px-3 py-2 rounded text-xs font-sans transition-all
-                    ${ch.chapterNumber === currentChapterNum
+                    ${ch.chapterNumber === currentChapter?.chapterNumber
                       ? "bg-gray-700/60 text-gray-100 border border-gray-600"
                       : "text-gray-500 hover:text-gray-300 hover:bg-gray-800/40"
                     }`}
@@ -112,22 +121,29 @@ export default async function NovelPage({
                 {currentChapter.title}
               </h2>
               <NovelRenderer content={currentChapter.content} />
+
+              {/* リアクション (2026-05-05) */}
+              <ReactionPanel
+                novelId={novel.id}
+                chapterId={currentChapter.id}
+                chapterTitle={currentChapter.title}
+              />
             </article>
           )}
 
           {/* Chapter navigation — スマホでもタップしやすい大きめボタン */}
           <div className="mt-12 pt-6 border-t border-gray-800 grid grid-cols-2 gap-3">
-            {currentChapterNum > 1 ? (
+            {prevChapter ? (
               <Link
-                href={`/novels/${slug}?chapter=${currentChapterNum - 1}`}
+                href={`/novels/${slug}?chapter=${prevChapter.chapterNumber}`}
                 className="flex items-center justify-center gap-2 min-h-[52px] px-4 py-3 rounded-lg border border-gray-700/60 hover:border-gray-600 bg-gray-900/30 hover:bg-gray-800/40 text-sm font-mono text-gray-400 hover:text-gray-200 transition-all col-start-1"
               >
                 ← 前の章
               </Link>
             ) : <div />}
-            {currentChapterNum < chapterList.length ? (
+            {nextChapter ? (
               <Link
-                href={`/novels/${slug}?chapter=${currentChapterNum + 1}`}
+                href={`/novels/${slug}?chapter=${nextChapter.chapterNumber}`}
                 className="flex items-center justify-center gap-2 min-h-[52px] px-4 py-3 rounded-lg border border-amber-800/40 hover:border-amber-700 bg-amber-950/10 hover:bg-amber-900/20 text-sm font-mono text-amber-500/80 hover:text-amber-400 transition-all col-start-2"
               >
                 次の章 →
