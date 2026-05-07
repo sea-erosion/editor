@@ -1,8 +1,8 @@
-// 編集日時: 2026-04-29
+// 編集日時: 2026-05-07 (fix: BUG-3 draft章をエクスポートから除外)
 // EPUB生成（JSZipを使った簡易EPUBv2）
 import { db } from "@/db/client";
 import { chapters, novels } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 function stripNml(content: string): string {
@@ -61,7 +61,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
   const novelRows = await db.select().from(novels).where(eq(novels.slug, slug));
   if (!novelRows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const novel = novelRows[0];
-  const chapterList = await db.select().from(chapters).where(eq(chapters.novelId, novel.id)).orderBy(chapters.chapterNumber);
+  const chapterList = await db.select().from(chapters).where(and(eq(chapters.novelId, novel.id), eq(chapters.status, "published"))).orderBy(chapters.chapterNumber);
 
   // JSZipがない環境向け: Zip構造をシンプルに生成せず、プレーンHTML単ファイルで代替
   // 本番では "jszip" を npm install して使用
