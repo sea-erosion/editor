@@ -1,5 +1,15 @@
-// 編集日時: 2026-05-03
+// 編集日時: 2026-05-03 / 2026-05-07 (fix: LinkTextをホワイトリスト方式に変更)
 "use client";
+
+/** http / https のみ許可。それ以外のスキームは # に置換してリンクを無効化 */
+function safeLinkHref(href: string): string {
+  const trimmed = href.trim();
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+  // スキームなし（例: "example.com"）は https:// を付与
+  if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmed)) return `https://${trimmed}`;
+  // javascript: / data: / vbscript: など危険なスキームは無効化
+  return "#";
+}
 
 export function EmText({ content }: { content: string }) {
   return (
@@ -82,7 +92,7 @@ export function ShakeText({ content }: { content: string }) {
 
 // LINK: 外部リンク
 export function LinkText({ href, content }: { href: string; content: string }) {
-  const safe = href.startsWith("http://") || href.startsWith("https://") ? href : `https://${href}`;
+  const safe = safeLinkHref(href);
   return (
     <a
       href={safe}
