@@ -23,7 +23,7 @@ npm run seed                        # 初期サンプルデータ投入（任意
 | `TURSO_AUTH_TOKEN` | Turso 認証トークン | 不要（ローカル時） |
 | `ADMIN_TOKEN` | 管理API認証トークン | **必須（要設定）** |
 
-> ⚠️ `ADMIN_TOKEN` を設定しないと管理APIが無防備になります。必ず強いランダム文字列を設定してください。
+> ⚠️ `ADMIN_TOKEN` を設定しないと管理APIが無防備になります。`openssl rand -hex 32` などで生成した強いランダム文字列を設定してください。
 
 ---
 
@@ -88,6 +88,7 @@ vercel --prod
 - 選択肢A
 - 選択肢B
 [/CHOICE]
+[CHOICE3]選択肢A|選択肢B|選択肢C[/CHOICE3]
 [GLOSSARY]
 [TERM|用語名|説明テキスト]
 [/GLOSSARY]
@@ -100,6 +101,15 @@ vercel --prod
 [IMAGE|photo|キャプションテキスト]
 [COUNTER|感染者数|1,729]
 [POV|Dr.ミズキ]
+[REPORT|分類コード|2024-03-11]報告書本文[/REPORT]
+[TIMELINE]
+[EVENT|2024-03-11 08:00|事象発生]
+[/TIMELINE]
+[CLASSIFIED|機密指定理由]削除済みテキスト[/CLASSIFIED]
+[TABLE]
+[ROW]列1|列2|列3
+[/TABLE]
+[TRANSMISSION|送信者|受信者]通信内容[/TRANSMISSION]
 ```
 
 ### インラインタグ
@@ -112,11 +122,20 @@ vercel --prod
 [CORRUPT|文字化けテキスト|level=2]
 [NOTE|1]                      脚注参照番号
 [TIME|03:47:22]               タイムスタンプ
+[FONT|キー|テキスト]          フォント指定（public/fonts/fonts.json で定義）
+[COLOR|red|テキスト]          文字色（色名または #hex）
+[BLINK|テキスト]              点滅
+[SPOILER|テキスト]            ホバーで表示（インライン黒塗り）
+[MARK|テキスト]               蛍光ペン風ハイライト
+[SHAKE|テキスト]              震えアニメーション
+[LINK|https://example.com|リンクテキスト]
 ```
 
 ---
 
 ## 管理画面
+
+`/admin/login` でトークンを入力してログインする。
 
 | パス | 機能 |
 |---|---|
@@ -167,7 +186,7 @@ app/
   entities/[type]/page.tsx          # エンティティ一覧
   entities/[type]/[id]/page.tsx     # エンティティ詳細
   admin/                            # 管理画面
-  api/admin/                        # 管理API（要 ADMIN_TOKEN 認証）
+  api/admin/                        # 管理API（Cookie 認証）
   api/novels/                       # 公開小説API
   api/entities/                     # 公開エンティティAPI
 components/
@@ -183,6 +202,9 @@ db/
 lib/
   markup-parser.ts                  # NMLトークナイザー
   nml-highlight.ts                  # エディタ用シンタックスハイライト
+  admin-fetch.ts                    # 管理API用 fetch ラッパー（認証ヘッダー自動付与）
+  rate-limit.ts                     # IPベースのインメモリレート制限
+middleware.ts                       # 認証ガード（/admin/** / /api/admin/**）
 types/index.ts                      # 型定義（Token, Entity など）
 instrumentation.ts                  # 起動時シード自動実行
 ```
